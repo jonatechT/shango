@@ -135,55 +135,54 @@
 
 @if (showCreateModal()) {
   <div class="sam-overlay" (click)="closeCreateModal()">
-    <div class="sam-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-      <!-- Bandeau supérieur : progression horizontale -->
-      <div class="sam-rail">
-        <div class="sam-rail-glow"></div>
+    <div class="sam-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="sam-modal-title">
+      <!-- En-tête : icône, titre, sous-titre, fermeture -->
+      <div class="sam-modal-header">
+        <div class="sam-modal-header-icon"><i class="fa-solid fa-building-circle-check"></i></div>
+        <div class="sam-modal-header-text">
+          <h3 class="sam-modal-title" id="sam-modal-title">Créer une nouvelle structure</h3>
+          <p class="sam-modal-subtitle">Renseignez les informations pour ajouter une structure à la plateforme.</p>
+        </div>
+        <button type="button" class="sam-modal-close" (click)="closeCreateModal()" aria-label="Fermer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
 
-        <div class="sam-rail-steps">
-          <div class="sam-rail-step" [class.sam-rail-step--active]="step() === 1" [class.sam-rail-step--done]="step() > 1">
-            <span class="sam-rail-step-icon">
-              @if (step() > 1) { <i class="fa-solid fa-check"></i> } @else { <i class="fa-solid fa-building-columns"></i> }
-            </span>
-            <span class="sam-rail-step-text">
-              <strong>Structure</strong>
-            </span>
-          </div>
-          <div class="sam-rail-line" [class.sam-rail-line--done]="step() > 1"></div>
+      <!-- Indicateur d'étapes -->
+      <div class="sam-steps">
+        <div class="sam-step-item" [class.sam-step-item--active]="step() === 1" [class.sam-step-item--done]="step() > 1">
+          <span class="sam-step-dot">
+            @if (step() > 1) { <i class="fa-solid fa-check"></i> } @else { 1 }
+          </span>
+          <span class="sam-step-name">Structure</span>
+        </div>
+        <span class="sam-step-connector" [class.sam-step-connector--done]="step() > 1"></span>
 
-          <div class="sam-rail-step" [class.sam-rail-step--active]="step() === 2" [class.sam-rail-step--done]="step() > 2">
-            <span class="sam-rail-step-icon">
-              @if (step() > 2) { <i class="fa-solid fa-check"></i> } @else { <i class="fa-solid fa-map-location-dot"></i> }
-            </span>
-            <span class="sam-rail-step-text">
-              <strong>Localisation</strong>
-            </span>
-          </div>
-          <div class="sam-rail-line" [class.sam-rail-line--done]="step() > 2"></div>
+        <div class="sam-step-item" [class.sam-step-item--active]="step() === 2" [class.sam-step-item--done]="step() > 2">
+          <span class="sam-step-dot">
+            @if (step() > 2) { <i class="fa-solid fa-check"></i> } @else { 2 }
+          </span>
+          <span class="sam-step-name">Localisation</span>
+        </div>
+        <span class="sam-step-connector" [class.sam-step-connector--done]="step() > 2"></span>
 
-          <div class="sam-rail-step" [class.sam-rail-step--active]="step() === 3" [class.sam-rail-step--done]="step() > 3">
-            <span class="sam-rail-step-icon">
-              @if (step() > 3) { <i class="fa-solid fa-check"></i> } @else { <i class="fa-solid fa-user-shield"></i> }
-            </span>
-            <span class="sam-rail-step-text">
-              <strong>Administrateur</strong>
-            </span>
-          </div>
-          <div class="sam-rail-line" [class.sam-rail-line--done]="step() > 3"></div>
+        <div class="sam-step-item" [class.sam-step-item--active]="step() === 3" [class.sam-step-item--done]="step() > 3">
+          <span class="sam-step-dot">
+            @if (step() > 3) { <i class="fa-solid fa-check"></i> } @else { 3 }
+          </span>
+          <span class="sam-step-name">Administrateur</span>
+        </div>
+        <span class="sam-step-connector" [class.sam-step-connector--done]="step() > 3"></span>
 
-          <div class="sam-rail-step" [class.sam-rail-step--active]="step() === 4">
-            <span class="sam-rail-step-icon"><i class="fa-solid fa-clipboard-check"></i></span>
-            <span class="sam-rail-step-text">
-              <strong>Validation</strong>
-            </span>
-          </div>
+        <div class="sam-step-item" [class.sam-step-item--active]="step() === 4">
+          <span class="sam-step-dot">4</span>
+          <span class="sam-step-name">Validation</span>
         </div>
       </div>
 
-      <!-- Panneau droit : contenu de l'étape -->
-      <div class="sam-main">
-        <div class="sam-main-scroll">
-          <span class="sam-eyebrow">Étape {{ step() }} sur 4</span>
+      <!-- Contenu de l'étape -->
+      <div class="sam-main-scroll">
+        <span class="sam-eyebrow">Étape {{ step() }} sur 4</span>
 
           @if (stepError()) {
             <div class="sam-error">
@@ -201,10 +200,13 @@
 
           <!-- Étape 1 : informations principales de la structure -->
         @if (step() === 1) {
-          <div class="sam-step-content">
+          <div class="sam-step-content sam-step-content--blue">
             <div class="sam-step-head">
-              <h4 class="sam-step-title">Informations principales</h4>
-              <p class="sam-step-sub">Renseignez les informations principales de la structure.</p>
+              <span class="sam-step-icon sam-step-icon--blue"><i class="fa-solid fa-building-columns"></i></span>
+              <div>
+                <h4 class="sam-step-title">Informations principales</h4>
+                <p class="sam-step-sub">Renseignez les informations principales de la structure.</p>
+              </div>
             </div>
             <div class="sam-grid">
               <div class="sam-field">
@@ -225,10 +227,13 @@
 
         <!-- Étape 2 : localisation et description -->
         @if (step() === 2) {
-          <div class="sam-step-content">
+          <div class="sam-step-content sam-step-content--green">
             <div class="sam-step-head">
-              <h4 class="sam-step-title">Localisation</h4>
-              <p class="sam-step-sub">Renseignez la localisation et une éventuelle description de la structure.</p>
+              <span class="sam-step-icon sam-step-icon--green"><i class="fa-solid fa-map-location-dot"></i></span>
+              <div>
+                <h4 class="sam-step-title">Localisation</h4>
+                <p class="sam-step-sub">Renseignez la localisation et une éventuelle description de la structure.</p>
+              </div>
             </div>
             <div class="sam-grid">
               <div class="sam-field">
@@ -253,10 +258,13 @@
 
 <!-- Étape 3 : administrateur -->
         @if (step() === 3) {
-          <div class="sam-step-content">
+          <div class="sam-step-content sam-step-content--purple">
             <div class="sam-step-head">
-              <h4 class="sam-step-title">Administrateur de la structure</h4>
-              <p class="sam-step-sub">Créez le compte administrateur associé à cette structure.</p>
+              <span class="sam-step-icon sam-step-icon--purple"><i class="fa-solid fa-user-shield"></i></span>
+              <div>
+                <h4 class="sam-step-title">Administrateur de la structure</h4>
+                <p class="sam-step-sub">Créez le compte administrateur associé à cette structure.</p>
+              </div>
             </div>
             <div class="sam-grid">
               <div class="sam-field">
@@ -285,14 +293,17 @@
 
         <!-- Étape 4 : validation -->
         @if (step() === 4) {
-          <div class="sam-step-content">
+          <div class="sam-step-content sam-step-content--orange">
             <div class="sam-step-head">
-              <h4 class="sam-step-title">Vérification</h4>
-              <p class="sam-step-sub">Confirmez les informations avant de créer la structure.</p>
+              <span class="sam-step-icon sam-step-icon--orange"><i class="fa-solid fa-clipboard-check"></i></span>
+              <div>
+                <h4 class="sam-step-title">Vérification</h4>
+                <p class="sam-step-sub">Confirmez les informations avant de créer la structure.</p>
+              </div>
             </div>
             <div class="sam-review">
-              <div class="sam-review-section">
-                <h5 class="sam-review-title">Structure</h5>
+              <div class="sam-review-section sam-review-section--blue">
+                <h5 class="sam-review-title"><i class="fa-solid fa-building-columns"></i> Structure</h5>
                 <div class="sam-review-row"><span>Nom</span><strong>{{ form.nom }}</strong></div>
                 <div class="sam-review-row"><span>Email</span><strong>{{ form.email }}</strong></div>
                 <div class="sam-review-row"><span>Téléphone</span><strong>{{ form.telephone || '—' }}</strong></div>
@@ -303,8 +314,8 @@
                   <div class="sam-review-row"><span>Description</span><strong>{{ form.description }}</strong></div>
                 }
               </div>
-              <div class="sam-review-section">
-                <h5 class="sam-review-title">Administrateur</h5>
+              <div class="sam-review-section sam-review-section--purple">
+                <h5 class="sam-review-title"><i class="fa-solid fa-user-shield"></i> Administrateur</h5>
                 @if (form.adminNom || form.adminEmail) {
                   <div class="sam-review-row"><span>Nom complet</span><strong>{{ form.adminNom || '—' }}</strong></div>
                   <div class="sam-review-row"><span>Email</span><strong>{{ form.adminEmail || '—' }}</strong></div>
@@ -333,7 +344,7 @@
               Suivant <i class="fa-solid fa-arrow-right"></i>
             </button>
           } @else {
-            <button type="button" class="sam-btn sam-btn--success" (click)="submitCreate()" [disabled]="isSaving()">
+            <button type="button" class="sam-btn sam-btn--primary" (click)="submitCreate()" [disabled]="isSaving()">
               @if (isSaving()) {
                 <i class="fa-solid fa-spinner fa-spin"></i>
               } @else {
@@ -343,7 +354,6 @@
             </button>
           }
         </div>
-      </div>
     </div>
   </div>
 }

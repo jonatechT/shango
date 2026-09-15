@@ -184,7 +184,6 @@ import { StructureService } from '../../superadmin/services/structure.service';
                     <option [ngValue]="t.id">{{ t.name }} ({{ structureLibelle(t.structureId) }})</option>
                   }
                 </select>
-                <span class="planif-modal-hint">CTRL+clic pour en sélectionner plusieurs (max {{ maxTechniciens }}).</span>
               </div>
             </div>
             <div class="planif-modal-footer">
@@ -310,21 +309,20 @@ import { StructureService } from '../../superadmin/services/structure.service';
 
     /* ===== Modale de planification ===== */
     .planif-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
-    .planif-modal { background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 440px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28); }
-    .planif-modal-header { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid #E2E8F0; }
-    .planif-modal-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #EFF6FF; color: #2563EB; font-size: 18px; flex-shrink: 0; }
+    .planif-modal { background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28); }
+    .planif-modal-header { display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #1E40AF; background: linear-gradient(180deg, #2563EB, #1D4ED8); }
+    .planif-modal-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.18); color: #FFF; font-size: 18px; flex-shrink: 0; border: 1px solid rgba(255, 255, 255, 0.25); }
     .planif-modal-title-block { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-    .planif-modal-title { margin: 0; font-size: 15px; font-weight: 700; color: #0F172A; }
-    .planif-modal-subtitle { font-size: 11.5px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .planif-modal-close { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: #64748B; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
-    .planif-modal-close:hover { background: #F1F5F9; color: #0F172A; }
-    .planif-modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-    .planif-modal-field { display: flex; flex-direction: column; gap: 4px; }
+    .planif-modal-title { margin: 0; font-size: 15px; font-weight: 700; color: #FFFFFF; }
+    .planif-modal-subtitle { font-size: 11.5px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .planif-modal-close { width: 32px; height: 32px; border-radius: 8px; border: none; background: rgba(255, 255, 255, 0.12); color: #FFFFFF; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
+    .planif-modal-close:hover { background: rgba(255, 255, 255, 0.24); color: #FFFFFF; }
+    .planif-modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+    .planif-modal-field { display: flex; flex-direction: column; gap: 6px; }
     .planif-modal-label { font-size: 12px; font-weight: 600; color: #475569; }
     .planif-modal-input { padding: 9px 12px; border: 1px solid #E2E8F0; border-radius: 9px; font-size: 13px; color: #0F172A; outline: none; font-family: inherit; background: #FFFFFF; }
     .planif-modal-input:focus { border-color: #2563EB; }
-    .planif-modal-hint { font-size: 11px; color: #94A3B8; }
-    .planif-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #E2E8F0; }
+    .planif-modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 18px 24px; border-top: 1px solid #E2E8F0; }
     .planif-btn-cancel { padding: 8px 16px; border-radius: 8px; border: 1px solid #E2E8F0; background: #FFFFFF; color: #475569; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
     .planif-btn-cancel:hover { background: #F1F5F9; }
     .planif-btn-confirm { padding: 8px 18px; border-radius: 8px; border: none; background: #2563EB; color: #FFFFFF; font-size: 12.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; }

@@ -18,7 +18,7 @@
 
   @if (showAddModal()) {
     <div class="users-modal-overlay" (click)="closeAddModal()">
-      <div class="users-modal" (click)="$event.stopPropagation()">
+      <div class="users-modal users-modal--add" (click)="$event.stopPropagation()">
         <div class="users-modal-header">
           <div class="users-modal-icon">
             <i class="fa-solid fa-user-plus"></i>

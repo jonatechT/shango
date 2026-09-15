@@ -129,6 +129,19 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                     </div>
                   }
                 </div>
+
+                <!-- Identifiant de l'équipement (IMEI / ID du boîtier IoT) -->
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-id">Équipement ID</label>
+                  <input
+                    id="eqm-id"
+                    name="equipmentId"
+                    type="text"
+                    class="eqm-input"
+                    placeholder="Ex : 354123456789012"
+                    [(ngModel)]="equipmentId"
+                  />
+                </div>
 <!-- Date de mise en ligne -->
                 <div class="eqm-field">
                   <label class="eqm-label" for="eqm-mise">Date de mise en ligne</label>
@@ -188,7 +201,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
       background: #FFFFFF;
       border: 1px solid #E2E8F0;
       border-radius: 12px;
-      width: 100%; max-width: 500px;
+      width: 100%; max-width: 820px;
       max-height: 92vh; overflow-y: auto;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(15, 23, 42, 0.12), 0 24px 64px rgba(15, 23, 42, 0.2);
     }
@@ -308,6 +321,7 @@ export class EquipmentFormModalComponent {
   type = '';
   typeAutre = '';
   protected typeOpen = signal(false);
+  equipmentId = '';
   miseEnLigne = '';
   description = '';
 
@@ -334,6 +348,7 @@ export class EquipmentFormModalComponent {
     this.type = '';
     this.typeAutre = '';
     this.typeOpen.set(false);
+    this.equipmentId = '';
     this.miseEnLigne = '';
     this.description = '';
     this.submitted.set(false);
@@ -381,7 +396,7 @@ export class EquipmentFormModalComponent {
         });
 
     const equipment: Equipment = {
-      id: `EQ-${Date.now()}`,
+      id: this.equipmentId.trim() || `EQ-${Date.now()}`,
       nom,
       statut: 'En ligne',
       localisation: 'En attente du GPS (IoT)',

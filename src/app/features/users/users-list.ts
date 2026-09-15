@@ -43,7 +43,8 @@ import { StructureService } from '../../superadmin/services/structure.service';
     .users-detail-value { font-size: 14px; font-weight: 600; color: #0F172A; word-break: break-word; }
     .users-detail-value a { color: #2563EB; text-decoration: none; }
     .users-detail-value a:hover { text-decoration: underline; }
-    .users-modal--detail { max-width: 520px; }
+    .users-modal.users-modal--detail { max-width: 520px; }
+    .users-modal.users-modal--add { max-width: 720px; }
     .users-modal-icon--info { background: #EFF6FF; color: #2563EB; }
     .users-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
     .users-form-group { display: flex; flex-direction: column; gap: 6px; }
