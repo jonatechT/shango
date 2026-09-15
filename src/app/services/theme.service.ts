@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-const THEME_STATE_KEY = 'safe_track_theme';
+const THEME_STATE_KEY = 'shango_theme';
 
 /**
  * Service de thème partagé (shell principal + espace SuperAdmin).

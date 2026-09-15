@@ -478,7 +478,7 @@ import { ThemeService } from '../../../services/theme.service';
   `]
 })
 export class SuperAdminLayoutComponent {
-  private readonly SIDEBAR_STATE_KEY = 'safe_track_superadmin_sidebar_collapsed';
+  private readonly SIDEBAR_STATE_KEY = 'shango_superadmin_sidebar_collapsed';
 
   protected readonly menuItems = [
     { label: 'Tableau de bord', icon: 'fa-solid fa-chart-pie', route: '/superadmin', exact: true },

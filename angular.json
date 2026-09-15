@@ -7,7 +7,7 @@
             },
     "newProjectRoot":  "projects",
     "projects":  {
-                     "safe_track_frontend":  {
+                     "shango":  {
                                                  "projectType":  "application",
                                                  "schematics":  {
                                                                     "@schematics/angular:component":  {
@@ -34,7 +34,7 @@
                                                                                                                 "src/styles.scss"
                                                                                                             ],
                                                                                                  "outputMode":  "static",
-                                                                                                 "baseHref":  "/safe_track/",
+                                                                                                 "baseHref":  "/shango/",
                                                                                                  "allowedCommonJsDependencies":  [
                                                                                                                                      "leaflet",
                                                                                                                                      "canvg",
@@ -85,10 +85,10 @@
                                                                                  "builder":  "@angular/build:dev-server",
                                                                                  "configurations":  {
                                                                                                         "production":  {
-                                                                                                                           "buildTarget":  "safe_track_frontend:build:production"
+                                                                                                                           "buildTarget":  "shango:build:production"
                                                                                                                        },
                                                                                                         "development":  {
-                                                                                                                            "buildTarget":  "safe_track_frontend:build:development"
+                                                                                                                            "buildTarget":  "shango:build:development"
                                                                                                                         }
                                                                                                     },
                                                                                  "defaultConfiguration":  "development",

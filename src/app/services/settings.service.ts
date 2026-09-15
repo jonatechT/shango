@@ -25,7 +25,7 @@ export interface AppSettings {
   providedIn: 'root'
 })
 export class SettingsService {
-  private readonly STORAGE_KEY = 'safe_track_settings';
+  private readonly STORAGE_KEY = 'shango_settings';
 
   readonly settings = signal<AppSettings>(this.load());
 

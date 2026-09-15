@@ -2,8 +2,8 @@ import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { BATTERY_API_CONFIG } from '../config/battery-api.config';
-import { mockBatteryCurrentDiagnostic, mockBatteryHistory } from './batterie-mock-data';
+import { EQUIPMENT_API_CONFIG } from '../config/equipment-api.config';
+import { mockBatteryCurrentDiagnostic, mockBatteryHistory, mockLocationHistory } from './equipment-mock-data';
 
 /**
  * Modèle d'un équipement du parc.
@@ -122,7 +122,7 @@ export class EquipmentService {
 
   constructor(private http: HttpClient) {}
 
-  private readonly STORAGE_KEY = 'safe_track_equipments';
+  private readonly STORAGE_KEY = 'shango_equipments';
 
   /** Données identiques à celles affichées jusqu'ici dans le tableau du parc */
   private readonly defaultEquipments: Equipment[] = [
@@ -219,7 +219,7 @@ export class EquipmentService {
    *   Rôle : ADMIN_STRUCTURE (équipements de sa structure) / SUPERADMIN
    *   Réponses : 201 (créé) / 409 (ID déjà existant)
    *
-   * En mode développeur (BATTERY_API_CONFIG.useMock), l'ajout est enregistré
+   * En mode développeur (EQUIPMENT_API_CONFIG.useMock), l'ajout est enregistré
    * localement pour pouvoir tester le parc sans backend.
    *
    * En mode réel, l'équipement n'est ajouté à la liste locale QUE si le backend
@@ -227,7 +227,7 @@ export class EquipmentService {
    * `equipmentCreateError`.
    */
   createEquipment(data: Equipment): Observable<Equipment | null> {
-    if (BATTERY_API_CONFIG.useMock) {
+    if (EQUIPMENT_API_CONFIG.useMock) {
       this.equipmentCreateError.set(null);
       const created: Equipment = {
         ...data,
@@ -291,6 +291,12 @@ export class EquipmentService {
    */
   setEquipmentStatus(id: string, bloque: boolean): Observable<Equipment | null> {
     this.equipmentStatusError.set(null);
+
+    if (EQUIPMENT_API_CONFIG.useMock) {
+      this.applyLocalStatus(id, bloque);
+      return of(this.getById(id) ?? null);
+    }
+
     const body = { statut: bloque ? 'BLOQUE' : 'ACTIF' };
     return this.http
       .patch<Equipment>(`/api/equipements/${encodeURIComponent(id)}/status`, body)
@@ -348,12 +354,12 @@ export class EquipmentService {
    * API / backend indisponible (le détail est alors exposé via `batteryApiError`).
    */
   getBatteryCurrentDiagnostic(deviceId: string): Observable<BatteryCurrentDiagnostic | null> {
-    if (BATTERY_API_CONFIG.useMock) {
+    if (EQUIPMENT_API_CONFIG.useMock) {
       return of(mockBatteryCurrentDiagnostic(deviceId));
     }
     this.batteryApiError.set(null);
     return this.http
-      .get<BatteryCurrentDiagnostic>(`${BATTERY_API_CONFIG.baseUrl}/${encodeURIComponent(deviceId)}/actuel`)
+      .get<BatteryCurrentDiagnostic>(`${EQUIPMENT_API_CONFIG.batteryBaseUrl}/${encodeURIComponent(deviceId)}/actuel`)
       .pipe(
         catchError((error: HttpErrorResponse) => {
           this.handleBatteryError(error);
@@ -369,12 +375,12 @@ export class EquipmentService {
    * indisponible (le détail est alors exposé via `batteryApiError`).
    */
   getBatteryHistory(deviceId: string): Observable<BatteryHistoryEntry[]> {
-    if (BATTERY_API_CONFIG.useMock) {
+    if (EQUIPMENT_API_CONFIG.useMock) {
       return of(mockBatteryHistory(deviceId));
     }
     this.batteryApiError.set(null);
     return this.http
-      .get<BatteryHistoryEntry[]>(`${BATTERY_API_CONFIG.baseUrl}/${encodeURIComponent(deviceId)}/historique`)
+      .get<BatteryHistoryEntry[]>(`${EQUIPMENT_API_CONFIG.batteryBaseUrl}/${encodeURIComponent(deviceId)}/historique`)
       .pipe(
         map(list => (Array.isArray(list) ? list : [])),
         catchError((error: HttpErrorResponse) => {
@@ -393,6 +399,12 @@ export class EquipmentService {
    */
   getEquipmentLocationHistory(id: string): Observable<LocationHistoryEntry[]> {
     this.locationHistoryError.set(null);
+
+    if (EQUIPMENT_API_CONFIG.useMock) {
+      const equipment = this.getById(id);
+      return of(mockLocationHistory(id, equipment?.localisation ?? '', equipment?.lienLocalisation ?? ''));
+    }
+
     return this.http
       .get<LocationHistoryEntry[]>(`/api/equipements/${encodeURIComponent(id)}/localisations`)
       .pipe(

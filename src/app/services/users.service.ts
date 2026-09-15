@@ -5,7 +5,7 @@ import { User } from '../auth/auth.service';
   providedIn: 'root'
 })
 export class UsersService {
-  private readonly USERS_REGISTRY_KEY = 'safe_track_users';
+  private readonly USERS_REGISTRY_KEY = 'shango_users';
 
   users = signal<User[]>(this.loadUsers());
 

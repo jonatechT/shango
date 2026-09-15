@@ -1,5 +1,5 @@
 name: Deploy to GitHub Pages
-# Deploy safe_track frontend to GitHub Pages (jonatecht.github.io/safe_track_front)
+# Deploy shango frontend to GitHub Pages (jonatecht.github.io/shango)
 
 on:
   push:
@@ -38,9 +38,9 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist/safe_track_frontend/browser
+          publish_dir: ./dist/shango/browser
           cname: false
           force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy safe_track_front to GitHub Pages'
+          commit_message: 'Deploy shango to GitHub Pages'

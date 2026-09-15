@@ -1,6 +1,6 @@
 /**
  * Middleware JSON Server — reformate les réponses pour coller au contrat
- * attendu par le frontend Safe Track.
+ * attendu par le frontend Shango.
  *
  * Le frontend attend :
  *   GET /api/batterie/:device_id/actuel      -> BatteryCurrentDiagnostic (plat)

@@ -1,19 +1,23 @@
-import type { BatteryCurrentDiagnostic, BatteryHistoryEntry } from './equipment.service';
+import type { BatteryCurrentDiagnostic, BatteryHistoryEntry, LocationHistoryEntry } from './equipment.service';
 
 /**
- * ⚠️ MOCK RÉSERVÉ AU DÉVELOPPEMENT — NE PAS UTILISER EN PRODUCTION.
+ * ⚠️ MOCK RÉSERVÉ À LA PRÉVISUALISATION SANS BACKEND — À SUPPRIMER UNE FOIS
+ * LE BACKEND CONNECTÉ.
  *
- * Ce module fournit des données de diagnostic batterie SIMULÉES, utilisées
- * uniquement lorsque `BATTERY_API_CONFIG.useMock` vaut `true`
- * (backend de diagnostic pas encore démarré en local).
+ * Ce module fournit des données SIMULÉES pour les endpoints backend consommés
+ * par `EquipmentService`, utilisées uniquement lorsque
+ * `EQUIPMENT_API_CONFIG.useMock` vaut `true`.
  *
- * En production (`useMock: false`), ces fonctions ne sont jamais appelées et le
- * frontend consomme exclusivement le vrai backend :
- *   GET /api/batterie/{device_id}/actuel
- *   GET /api/batterie/{device_id}/historique
+ * Une fois le backend réellement branché (`useMock: false`), ces fonctions ne
+ * sont plus jamais appelées et le frontend consomme exclusivement les vrais
+ * endpoints :
+ *   GET   /api/batterie/{device_id}/actuel
+ *   GET   /api/batterie/{device_id}/historique
+ *   GET   /api/equipements/{id}/localisations
+ *   PATCH /api/equipements/{id}/status
  *
  * Aucune conversion électrique (ex. voltage / 4) n'est réalisée ici : ces
- * valeurs simulées représentent ce que le backend renverRA après analyse.
+ * valeurs simulées représentent ce que le backend renverra après analyse.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -48,4 +52,26 @@ export function mockBatteryHistory(deviceId: string): BatteryHistoryEntry[] {
     });
   }
   return points;
+}
+
+/** Historique de localisation simulé : 3 positions successives menant à la position actuelle de l'équipement. */
+export function mockLocationHistory(deviceId: string, currentLocalisation: string, currentLien: string): LocationHistoryEntry[] {
+  const now = Date.now();
+  const positions: { localisation: string; lien: string }[] = [
+    { localisation: '12.3714°N, -1.5197°E', lien: '12.3714,-1.5197' },
+    { localisation: '12.3685°N, -1.5250°E', lien: '12.3685,-1.5250' },
+    { localisation: currentLocalisation || '12.3714°N, -1.5197°E', lien: currentLien || '12.3714,-1.5197' }
+  ];
+
+  return positions.map((pos, index) => {
+    const debut = new Date(now - (positions.length - index) * 4 * DAY_MS);
+    const estActuelle = index === positions.length - 1;
+    const fin = estActuelle ? null : new Date(debut.getTime() + 4 * DAY_MS);
+    return {
+      date_debut: debut.toISOString(),
+      date_fin: fin ? fin.toISOString() : null,
+      localisation: pos.localisation,
+      lien_localisation: pos.lien
+    };
+  });
 }

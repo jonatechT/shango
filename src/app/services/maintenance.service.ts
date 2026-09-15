@@ -69,8 +69,8 @@ export interface RapportIntervention {
   providedIn: 'root'
 })
 export class MaintenanceService {
-  private readonly STORAGE_KEY = 'safe_track_maintenance_v7';
-  private readonly NOTIFICATIONS_STORAGE_KEY = 'safe_track_notifications_v1';
+  private readonly STORAGE_KEY = 'shango_maintenance_v7';
+  private readonly NOTIFICATIONS_STORAGE_KEY = 'shango_notifications_v1';
 
   readonly maintenanceItems = signal<MaintenanceItem[]>(this.loadInitialData());
   /**
@@ -134,12 +134,12 @@ export class MaintenanceService {
   private loadInitialData(): MaintenanceItem[] {
     // Nettoyage des anciennes clés de stockage (migration v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7)
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('safe_track_maintenance');
-      localStorage.removeItem('safe_track_maintenance_v2');
-      localStorage.removeItem('safe_track_maintenance_v3');
-      localStorage.removeItem('safe_track_maintenance_v4');
-      localStorage.removeItem('safe_track_maintenance_v5');
-      localStorage.removeItem('safe_track_maintenance_v6');
+      localStorage.removeItem('shango_maintenance');
+      localStorage.removeItem('shango_maintenance_v2');
+      localStorage.removeItem('shango_maintenance_v3');
+      localStorage.removeItem('shango_maintenance_v4');
+      localStorage.removeItem('shango_maintenance_v5');
+      localStorage.removeItem('shango_maintenance_v6');
     }
     // Charger les données persistées : les prises d'alerte doivent survivre
     // à un rafraîchissement pour que tous les techniciens voient qui a pris quoi.

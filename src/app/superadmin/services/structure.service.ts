@@ -6,8 +6,8 @@ import { MaintenanceService } from '../../services/maintenance.service';
   providedIn: 'root'
 })
 export class StructureService {
-  private readonly STORAGE_KEY = 'safe_track_structures';
-  private readonly STORAGE_VERSION_KEY = 'safe_track_structures_version';
+  private readonly STORAGE_KEY = 'shango_structures';
+  private readonly STORAGE_VERSION_KEY = 'shango_structures_version';
   private readonly CURRENT_VERSION = '5';
 
   structures = signal<Structure[]>(this.loadStructures());
@@ -105,7 +105,7 @@ export class StructureService {
 
   countUsers(): { total: number; actifs: number } {
     if (typeof window !== 'undefined') {
-      const userKey = 'safe_track_users';
+      const userKey = 'shango_users';
       const raw = localStorage.getItem(userKey);
       const users = raw ? JSON.parse(raw) : [];
       const actifs = users.filter((u: any) => u.role === 'ADMIN_STRUCTURE' || u.role === 'USER').length;

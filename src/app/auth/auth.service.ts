@@ -20,23 +20,23 @@ export interface User {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly TOKEN_KEY = 'safe_track_token';
+  private readonly TOKEN_KEY = 'shango_token';
   private readonly USERS_CURRENT_VERSION = '4';
 
   /** Profil personnalisé du SuperAdmin (nom/email/téléphone/mot de passe modifiés depuis son profil) */
-  private readonly SUPER_PROFILE_KEY = 'safe_track_superadmin_profile';
-  private readonly USER_KEY = 'safe_track_user';
-  private readonly USERS_REGISTRY_KEY = 'safe_track_users';
-  private readonly USERS_VERSION_KEY = 'safe_track_users_version';
+  private readonly SUPER_PROFILE_KEY = 'shango_superadmin_profile';
+  private readonly USER_KEY = 'shango_user';
+  private readonly USERS_REGISTRY_KEY = 'shango_users';
+  private readonly USERS_VERSION_KEY = 'shango_users_version';
 
   /** Version de la session de connexion (clé séparée du registre des comptes) */
-  private readonly SESSION_VERSION_KEY = 'safe_track_session_version';
+  private readonly SESSION_VERSION_KEY = 'shango_session_version';
   private readonly SESSION_CURRENT_VERSION = '2';
 
   /** Rôles valides — toute session avec un autre rôle est considérée obsolète */
   private readonly VALID_ROLES: UserRole[] = ['SUPERADMIN', 'ADMIN_STRUCTURE', 'USER'];
 
-  private readonly SUPER_ADMIN_EMAIL = 'superadmin@safetrack.com';
+  private readonly SUPER_ADMIN_EMAIL = 'superadmin@shango.com';
   private readonly SUPER_ADMIN_PASSWORD = 'admin123';
 
   isLoggedIn = signal<boolean>(this.hasToken());
@@ -81,7 +81,7 @@ export class AuthService {
       {
         id: 3,
         name: 'M. Ouedraogo',
-        email: 'mamadou@safe-track.com',
+        email: 'mamadou@shango.com',
         role: 'USER',
         structureId: 'STR-001',
         statut: 'ACTIVE',
@@ -92,7 +92,7 @@ export class AuthService {
       {
         id: 4,
         name: 'M. Traore',
-        email: 'traore@safe-track.com',
+        email: 'traore@shango.com',
         role: 'USER',
         structureId: 'STR-001',
         statut: 'ACTIVE',
@@ -103,7 +103,7 @@ export class AuthService {
       {
         id: 5,
         name: 'M. Sanogo',
-        email: 'sanogo@safe-track.com',
+        email: 'sanogo@shango.com',
         role: 'USER',
         structureId: 'STR-002',
         statut: 'ACTIVE',
@@ -114,7 +114,7 @@ export class AuthService {
       {
         id: 6,
         name: 'Mme Kaboré',
-        email: 'kabore@safe-track.com',
+        email: 'kabore@shango.com',
         role: 'USER',
         structureId: 'STR-001',
         statut: 'ACTIVE',
@@ -125,7 +125,7 @@ export class AuthService {
       {
         id: 7,
         name: 'M. Zongo',
-        email: 'zongo@safe-track.com',
+        email: 'zongo@shango.com',
         role: 'USER',
         structureId: 'STR-002',
         statut: 'ACTIVE',

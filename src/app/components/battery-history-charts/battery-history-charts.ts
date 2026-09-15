@@ -123,16 +123,21 @@ export class BatteryHistoryChartsComponent implements OnChanges, AfterViewInit, 
   @ViewChild('temperatureCanvas') temperatureCanvas?: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
+  /** Les canvas (@ViewChild) ne sont résolus qu'après ngAfterViewInit. Si ce
+   * composant est créé avec des données déjà présentes (cf. @if côté parent),
+   * ngOnChanges peut s'exécuter avant : on ignore ce premier appel et on
+   * laisse ngAfterViewInit faire le rendu initial. */
+  private viewReady = false;
 
   constructor(private ngZone: NgZone) {}
 
   ngOnChanges(): void {
-    // Les canvas ne sont disponibles qu'après le premier rendu : on laisse
-    // ngAfterViewInit gérer le premier rendu, puis on re-rend à chaque mise à jour.
+    if (!this.viewReady) return;
     this.renderCharts();
   }
 
   ngAfterViewInit(): void {
+    this.viewReady = true;
     this.renderCharts();
   }
 

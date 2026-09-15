@@ -1,9 +1,9 @@
-# FRONTEND ARCHITECTURE — SAFE TRACK
+# FRONTEND ARCHITECTURE — SHANGO
 
 ## 1. Architecture globale
 
 ```
-                    SAFE TRACK
+                    SHANGO
                          │
              ┌───────────┴───────────┐
              │                       │

@@ -1,4 +1,4 @@
-# BACKEND API CONTRACT — SAFE TRACK
+# BACKEND API CONTRACT — SHANGO
 
 Ce document définit le contrat entre le frontend et le futur backend.
 

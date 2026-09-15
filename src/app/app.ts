@@ -1,4 +1,4 @@
-// Deployed to GitHub Pages at https://jonatecht.github.io/safe_track/
+// Deployed to GitHub Pages at https://jonatecht.github.io/shango/
 import { Component, signal } from '@angular/core';
 import { NgIf, DatePipe } from '@angular/common';
 import { RouterOutlet, RouterLink, NavigationEnd } from '@angular/router';
@@ -27,7 +27,7 @@ interface MenuItem {
 export class App {
   protected readonly title = signal('Shango');
 
-  private readonly SIDEBAR_STATE_KEY = 'safe_track_sidebar_collapsed';
+  private readonly SIDEBAR_STATE_KEY = 'shango_sidebar_collapsed';
 
   isSidebarCollapsed = false;
   isMobileMenuOpen = false;

@@ -1,5 +1,5 @@
 {
-    "name":  "safe-track-frontend",
+    "name":  "shango-frontend",
     "version":  "0.0.0",
     "scripts":  {
                     "ng":  "ng",
@@ -7,7 +7,7 @@
                     "build":  "ng build",
                     "watch":  "ng build --watch --configuration development",
                     "test":  "ng test",
-                    "serve:ssr:safe_track_frontend":  "node dist/safe_track_frontend/server/server.mjs",
+                    "serve:ssr:shango":  "node dist/shango/server/server.mjs",
                     "mock:server":  "json-server --watch db.json --routes routes.json --port 3000",
                     "start:mock":  "npm run mock:server"
                 },
