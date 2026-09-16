@@ -226,10 +226,16 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                   <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
                 </div>
               }
-              @if (equipment.numeroSerie) {
+              @if (equipment.clientNom) {
                 <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Numéro de série</span>
-                  <span class="eqd-infos-value">{{ equipment.numeroSerie }}</span>
+                  <span class="eqd-infos-key">Nom du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
+                </div>
+              }
+              @if (equipment.clientNumero) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Numéro du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
                 </div>
               }
               @if (equipment.site) {
@@ -2117,11 +2123,11 @@ export class EquipmentDetailPageComponent implements OnInit {
     return this.equipment?.nom.replace(/\s*#.*$/, '').trim() || '';
   }
 
-  /** true si au moins un champ complémentaire (marque, série, site…) est renseigné. */
+  /** true si au moins un champ complémentaire (marque, client, site…) est renseigné. */
   get hasInfosGenerales(): boolean {
     const e = this.equipment;
     if (!e) return false;
-    return !!(e.marqueModele || e.numeroSerie || e.site || e.boitierId || e.responsable || e.perimetreMetres);
+    return !!(e.marqueModele || e.clientNom || e.clientNumero || e.site || e.boitierId || e.responsable || e.perimetreMetres);
   }
 
   /* ===== États asynchrones en signals — app zoneless (Angular sans zone.js) :

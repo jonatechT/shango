@@ -36,8 +36,10 @@ export interface Equipment {
   bloque?: boolean;
   /** Marque / modèle du matériel (ex. « Victron MultiPlus-II »). */
   marqueModele?: string;
-  /** Numéro de série du fabricant. */
-  numeroSerie?: string;
+  /** Nom du client auquel l'équipement est attribué. */
+  clientNom?: string;
+  /** Numéro / référence du client. */
+  clientNumero?: string;
   /** Site / emplacement descriptif (distinct des coordonnées GPS). */
   site?: string;
   /** Identifiant du boîtier IoT SHANGO installé sur l'équipement. */

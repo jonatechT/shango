@@ -60,21 +60,26 @@ const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
             <form (ngSubmit)="onSubmit()" novalidate>
               <div class="eqm-grid">
                 <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-nom">
-                    Nom de l'équipement <span class="eqm-required">*</span>
+                  <label class="eqm-label" for="eqm-client-nom">
+                    Nom du client <span class="eqm-required">*</span>
                   </label>
                   <input
-                    id="eqm-nom"
-                    name="nom"
+                    id="eqm-client-nom"
+                    name="clientNom"
                     type="text"
                     class="eqm-input"
-                    placeholder="Ex : Kit solaire SH-001"
-                    [(ngModel)]="nom"
+                    placeholder="Ex : Ouedraogo Ibrahim"
+                    [(ngModel)]="clientNom"
                     required
                   />
-                  @if (submitted() && !nom.trim()) {
-                    <span class="eqm-error">Le nom est obligatoire.</span>
+                  @if (submitted() && !clientNom.trim()) {
+                    <span class="eqm-error">Le nom du client est obligatoire.</span>
                   }
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-client-numero">Numéro du client</label>
+                  <input id="eqm-client-numero" name="clientNumero" type="text" class="eqm-input" placeholder="Ex : CL-0456" [(ngModel)]="clientNumero" />
                 </div>
 
                 <div class="eqm-field">
@@ -128,28 +133,13 @@ const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
                 </div>
 
                 <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-serie">Numéro de série</label>
-                  <input id="eqm-serie" name="numeroSerie" type="text" class="eqm-input" placeholder="Ex : VMP2-2026-00123" [(ngModel)]="numeroSerie" />
-                </div>
-
-                <div class="eqm-field">
                   <label class="eqm-label" for="eqm-site">Site / emplacement</label>
                   <input id="eqm-site" name="site" type="text" class="eqm-input" placeholder="Ex : Ouagadougou — Secteur 12" [(ngModel)]="site" />
                 </div>
 
                 <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-gps">Position GPS</label>
-                  <input id="eqm-gps" type="text" class="eqm-input eqm-input-readonly" value="En attente du GPS (IoT)" readonly />
-                </div>
-
-                <div class="eqm-field">
                   <label class="eqm-label" for="eqm-boitier">ID du boîtier SHANGO</label>
                   <input id="eqm-boitier" name="boitierId" type="text" class="eqm-input" placeholder="Ex : BOX-2026-0456" [(ngModel)]="boitierId" />
-                </div>
-
-                <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-mise">Date de mise en service</label>
-                  <input id="eqm-mise" name="miseEnLigne" type="date" class="eqm-input" [(ngModel)]="miseEnLigne" />
                 </div>
 
                 <div class="eqm-field">
@@ -397,15 +387,14 @@ export class EquipmentFormModalComponent {
   protected readonly typesEquipement = TYPES_EQUIPEMENT;
   protected readonly etatsEquipement = ETATS_EQUIPEMENT;
 
-  nom = '';
+  clientNom = '';
+  clientNumero = '';
   equipmentIdPreview = '';
   type = '';
   protected typeOpen = signal(false);
   marqueModele = '';
-  numeroSerie = '';
   site = '';
   boitierId = '';
-  miseEnLigne = '';
   etat = ETATS_EQUIPEMENT[0];
   responsable = '';
   photoDataUrl: string | null = null;
@@ -424,7 +413,6 @@ export class EquipmentFormModalComponent {
   show(): void {
     this.reset();
     this.equipmentIdPreview = this.equipmentService.generateEquipmentId();
-    this.miseEnLigne = this.todayIso();
     this.open.set(true);
   }
 
@@ -433,22 +421,15 @@ export class EquipmentFormModalComponent {
     this.reset();
   }
 
-  private todayIso(): string {
-    const d = new Date();
-    const p = (v: number) => v.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  }
-
   private reset(): void {
-    this.nom = '';
+    this.clientNom = '';
+    this.clientNumero = '';
     this.equipmentIdPreview = '';
     this.type = '';
     this.typeOpen.set(false);
     this.marqueModele = '';
-    this.numeroSerie = '';
     this.site = '';
     this.boitierId = '';
-    this.miseEnLigne = '';
     this.etat = ETATS_EQUIPEMENT[0];
     this.responsable = '';
     this.photoDataUrl = null;
@@ -495,9 +476,9 @@ export class EquipmentFormModalComponent {
     this.submitted.set(true);
     this.message.set('');
 
-    const nom = this.nom.trim();
+    const clientNom = this.clientNom.trim();
 
-    if (!nom || !this.type) {
+    if (!clientNom || !this.type) {
       this.message.set('Veuillez remplir tous les champs obligatoires.');
       this.messageType.set('error');
       return;
@@ -505,17 +486,13 @@ export class EquipmentFormModalComponent {
 
     this.isSubmitting.set(true);
 
-    const miseEnLigne = this.miseEnLigne
-      ? new Date(this.miseEnLigne + 'T00:00:00').toLocaleDateString('fr-FR', {
-          day: 'numeric', month: 'long', year: 'numeric'
-        })
-      : new Date().toLocaleDateString('fr-FR', {
-          day: 'numeric', month: 'long', year: 'numeric'
-        });
+    const miseEnLigne = new Date().toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
 
     const equipment: Equipment = {
       id: this.equipmentIdPreview,
-      nom,
+      nom: `${this.type} — ${clientNom}`,
       statut: this.etat,
       localisation: 'En attente du GPS (IoT)',
       lienLocalisation: 'En attente du GPS (IoT)',
@@ -526,7 +503,8 @@ export class EquipmentFormModalComponent {
       tension: null,
       bloque: false,
       marqueModele: this.marqueModele.trim() || undefined,
-      numeroSerie: this.numeroSerie.trim() || undefined,
+      clientNom,
+      clientNumero: this.clientNumero.trim() || undefined,
       site: this.site.trim() || undefined,
       boitierId: this.boitierId.trim() || undefined,
       responsable: this.responsable.trim() || undefined,
