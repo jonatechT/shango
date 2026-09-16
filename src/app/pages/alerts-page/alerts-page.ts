@@ -62,16 +62,6 @@ import { StructureService } from '../../superadmin/services/structure.service';
             </div>
 
             <div class="filter-right">
-              <div class="filter-select-wrap">
-                <i class="fa-solid fa-cube filter-select-icon"></i>
-                <select class="filter-select" [(ngModel)]="filtreType" aria-label="Filtrer par type d'équipement">
-                  <option value="toutes">Tous les types</option>
-                  @for (type of typesDisponibles; track type) {
-                    <option [value]="type">{{ type }}</option>
-                  }
-                </select>
-              </div>
-
               <div class="alerts-search">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input
@@ -308,14 +298,6 @@ import { StructureService } from '../../superadmin/services/structure.service';
     .filter-pill.active .filter-pill-count { background: rgba(255, 255, 255, 0.25); }
 
     .filter-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .filter-select-wrap { position: relative; display: flex; align-items: center; }
-    .filter-select-icon { position: absolute; left: 12px; color: #94A3B8; font-size: 12px; pointer-events: none; }
-    .filter-select {
-      appearance: none; padding: 9px 32px 9px 32px; border: 1px solid #E2E8F0; border-radius: 10px;
-      background: #FFFFFF; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer;
-      font-family: inherit; min-width: 170px;
-    }
-    .filter-select:focus { outline: none; border-color: #2563EB; }
 
     .alerts-search { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 10px; background: #FFFFFF; min-width: 260px; }
     .alerts-search i { color: #94A3B8; font-size: 13px; }
@@ -327,7 +309,6 @@ import { StructureService } from '../../superadmin/services/structure.service';
       .alerts-filters { flex-direction: column; align-items: stretch; }
       .filter-right { flex-direction: column; align-items: stretch; }
       .alerts-search { min-width: 0; }
-      .filter-select { width: 100%; }
     }
 
     .table-card { background: transparent; border: none; padding: 0; }
@@ -425,8 +406,6 @@ export class AlertsPageComponent {
 
   /** Filtre de sévérité actif sur la liste des alertes. */
   filtreSeverite: 'toutes' | 'Critique' | 'Avertissement' = 'toutes';
-  /** Filtre de type d'équipement actif ('toutes' = tous les types). */
-  filtreType = 'toutes';
   /** Recherche libre par nom d'équipement ou numéro d'alerte. */
   rechercheEquipement = '';
 
@@ -446,17 +425,11 @@ export class AlertsPageComponent {
     return this.maintenanceService.getItems().filter(i => !i.prisPar && i.alertes > 0 && (!sid || i.structureId === sid));
   }
 
-  /** Types d'équipement présents dans les alertes courantes (pour la liste déroulante de filtre). */
-  get typesDisponibles(): string[] {
-    return Array.from(new Set(this.items.map(i => i.type))).sort((a, b) => a.localeCompare(b));
-  }
-
-  /** Alertes après application des filtres (sévérité, type d'équipement, recherche). */
+  /** Alertes après application des filtres (sévérité, recherche). */
   get itemsFiltres(): MaintenanceItem[] {
     const q = this.rechercheEquipement.trim().toLowerCase();
     return this.items.filter(item => {
       if (this.filtreSeverite !== 'toutes' && item.severite !== this.filtreSeverite) return false;
-      if (this.filtreType !== 'toutes' && item.type !== this.filtreType) return false;
       if (q) {
         const qId = q.replace(/^sh-?/, '');
         const matchNom = item.equipment.toLowerCase().includes(q);
