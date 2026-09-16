@@ -79,6 +79,10 @@ export interface BatteryCurrentDiagnostic {
   temperature_c: number | null;
   /** Profondeur de décharge (%). */
   dod_percent: number | null;
+  /** Humidité mesurée au niveau du boîtier/de la batterie (%). */
+  humidite_pourcent: number | null;
+  /** Statut de paiement de l'équipement (ex. « Payé », « Impayé », « En retard »), fourni par le backend. */
+  statut_paiement: string | null;
   /** État de santé / SOH (%). */
   soh_pourcent: number | null;
   /** Capacité restante (Ah). */
@@ -224,6 +228,19 @@ export class EquipmentService {
   /** Prochain identifiant court disponible (format "SH-001"), pour pré-remplir/compléter un formulaire. */
   generateEquipmentId(): string {
     return this.nextCleanId();
+  }
+
+  /** Prochain identifiant de boîtier IoT SHANGO disponible, format "BOX-001" (jamais réutilisé). */
+  generateBoitierId(): string {
+    const used = new Set(
+      this.equipments
+        .map(e => /^BOX-(\d+)$/i.exec(e.boitierId ?? '')?.[1])
+        .filter((n): n is string => !!n)
+        .map(Number)
+    );
+    let next = 1;
+    while (used.has(next)) next++;
+    return 'BOX-' + next.toString().padStart(3, '0');
   }
 
   /**

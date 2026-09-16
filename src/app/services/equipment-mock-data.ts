@@ -31,6 +31,8 @@ export function mockBatteryCurrentDiagnostic(deviceId: string): BatteryCurrentDi
     current_a: 2.8,
     temperature_c: 36.9,
     dod_percent: 38,
+    humidite_pourcent: 42,
+    statut_paiement: 'Payé',
     soh_pourcent: 84,
     capacite_restante_ah: 102.4,
     duree_estimee_jours: 190,

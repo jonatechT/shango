@@ -16,8 +16,6 @@ const TYPES_EQUIPEMENT = [
   'Engin minier'
 ];
 
-const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
-
 /**
  * Modale « Ajouter un équipement ».
  * S'affiche en fenêtre modale au-dessus du parc d'équipement
@@ -83,11 +81,6 @@ const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
                 </div>
 
                 <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-id">Équipement ID</label>
-                  <input id="eqm-id" type="text" class="eqm-input eqm-input-readonly" [value]="equipmentIdPreview" readonly />
-                </div>
-
-                <div class="eqm-field">
                   <label class="eqm-label" for="eqm-type">
                     Type / catégorie <span class="eqm-required">*</span>
                   </label>
@@ -139,21 +132,7 @@ const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
 
                 <div class="eqm-field">
                   <label class="eqm-label" for="eqm-boitier">ID du boîtier SHANGO</label>
-                  <input id="eqm-boitier" name="boitierId" type="text" class="eqm-input" placeholder="Ex : BOX-2026-0456" [(ngModel)]="boitierId" />
-                </div>
-
-                <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-etat">État de l'équipement</label>
-                  <select id="eqm-etat" name="etat" class="eqm-input" [(ngModel)]="etat">
-                    @for (e of etatsEquipement; track e) {
-                      <option [value]="e">{{ e }}</option>
-                    }
-                  </select>
-                </div>
-
-                <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-responsable">Responsable</label>
-                  <input id="eqm-responsable" name="responsable" type="text" class="eqm-input" placeholder="Ex : M. Ouedraogo" [(ngModel)]="responsable" />
+                  <input id="eqm-boitier" type="text" class="eqm-input eqm-input-readonly" [value]="boitierIdPreview" readonly />
                 </div>
 
                 <div class="eqm-field eqm-field--full">
@@ -239,8 +218,8 @@ const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
       background: #FFFFFF;
       border: 1px solid #E2E8F0;
       border-radius: 12px;
-      width: 100%; max-width: 820px;
-      max-height: 92vh; overflow-y: auto;
+      width: 100%; max-width: 900px;
+      max-height: 94vh; overflow-y: auto;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(15, 23, 42, 0.12), 0 24px 64px rgba(15, 23, 42, 0.2);
     }
     .eqm-header {
@@ -385,18 +364,15 @@ export class EquipmentFormModalComponent {
   open = signal(false);
 
   protected readonly typesEquipement = TYPES_EQUIPEMENT;
-  protected readonly etatsEquipement = ETATS_EQUIPEMENT;
 
   clientNom = '';
   clientNumero = '';
-  equipmentIdPreview = '';
+  private equipmentIdPreview = '';
+  boitierIdPreview = '';
   type = '';
   protected typeOpen = signal(false);
   marqueModele = '';
   site = '';
-  boitierId = '';
-  etat = ETATS_EQUIPEMENT[0];
-  responsable = '';
   photoDataUrl: string | null = null;
   perimetreActif = false;
   perimetreMetres: number | null = null;
@@ -413,6 +389,7 @@ export class EquipmentFormModalComponent {
   show(): void {
     this.reset();
     this.equipmentIdPreview = this.equipmentService.generateEquipmentId();
+    this.boitierIdPreview = this.equipmentService.generateBoitierId();
     this.open.set(true);
   }
 
@@ -425,13 +402,11 @@ export class EquipmentFormModalComponent {
     this.clientNom = '';
     this.clientNumero = '';
     this.equipmentIdPreview = '';
+    this.boitierIdPreview = '';
     this.type = '';
     this.typeOpen.set(false);
     this.marqueModele = '';
     this.site = '';
-    this.boitierId = '';
-    this.etat = ETATS_EQUIPEMENT[0];
-    this.responsable = '';
     this.photoDataUrl = null;
     this.perimetreActif = false;
     this.perimetreMetres = null;
@@ -493,7 +468,7 @@ export class EquipmentFormModalComponent {
     const equipment: Equipment = {
       id: this.equipmentIdPreview,
       nom: `${this.type} — ${clientNom}`,
-      statut: this.etat,
+      statut: 'En ligne',
       localisation: 'En attente du GPS (IoT)',
       lienLocalisation: 'En attente du GPS (IoT)',
       miseEnLigne,
@@ -506,8 +481,7 @@ export class EquipmentFormModalComponent {
       clientNom,
       clientNumero: this.clientNumero.trim() || undefined,
       site: this.site.trim() || undefined,
-      boitierId: this.boitierId.trim() || undefined,
-      responsable: this.responsable.trim() || undefined,
+      boitierId: this.boitierIdPreview,
       photoDataUrl: this.photoDataUrl || undefined,
       perimetreMetres: this.perimetreActif && this.perimetreMetres ? this.perimetreMetres : undefined
     };

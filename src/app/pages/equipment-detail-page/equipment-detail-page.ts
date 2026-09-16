@@ -444,6 +444,20 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                   <span class="eqd-bdiag-measure-value">{{ batteryDodDisplay }}</span>
                 </div>
               </div>
+              <div class="eqd-bdiag-measure">
+                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--cyan"><i class="fa-solid fa-droplet"></i></span>
+                <div class="eqd-bdiag-measure-text">
+                  <span class="eqd-bdiag-measure-key">Humidité</span>
+                  <span class="eqd-bdiag-measure-value">{{ batteryHumidityDisplay }}</span>
+                </div>
+              </div>
+              <div class="eqd-bdiag-measure">
+                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--purple"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+                <div class="eqd-bdiag-measure-text">
+                  <span class="eqd-bdiag-measure-key">Statut paiement</span>
+                  <span [class]="'eqd-bdiag-measure-value ' + paiementStatusClass">{{ batteryPaiementDisplay }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- ===== Capacité + durée de vie ===== -->
@@ -1785,6 +1799,8 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
     .eqd-bdiag-measure-icon--green { background: rgba(32, 201, 151, 0.14); color: #12B886; }
     .eqd-bdiag-measure-icon--orange { background: rgba(245, 158, 11, 0.14); color: #D97706; }
     .eqd-bdiag-measure-icon--red { background: rgba(239, 68, 68, 0.12); color: #EF4444; }
+    .eqd-bdiag-measure-icon--cyan { background: rgba(6, 182, 212, 0.12); color: #0891B2; }
+    .eqd-bdiag-measure-icon--purple { background: rgba(139, 92, 246, 0.12); color: #7C3AED; }
 
     .eqd-bdiag-measure-text {
       display: flex;
@@ -1792,6 +1808,10 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       gap: 2px;
       min-width: 0;
     }
+
+    .eqd-bdiag-measure-value--success { color: #12B886; }
+    .eqd-bdiag-measure-value--warning { color: #D97706; }
+    .eqd-bdiag-measure-value--danger { color: #EF4444; }
 
     .eqd-bdiag-measure-key {
       font-size: 11px;
@@ -2591,6 +2611,24 @@ export class EquipmentDetailPageComponent implements OnInit {
   get batteryDodDisplay(): string {
     const v = this.batteryDiagnostic()?.dod_percent;
     return v !== null && v !== undefined ? `${Number(v).toFixed(1)} %` : '—';
+  }
+
+  get batteryHumidityDisplay(): string {
+    const v = this.batteryDiagnostic()?.humidite_pourcent;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(0)} %` : '—';
+  }
+
+  get batteryPaiementDisplay(): string {
+    return this.batteryDiagnostic()?.statut_paiement ?? '—';
+  }
+
+  /** Couleur du statut de paiement (vert = à jour, rouge = impayé, ambre = en retard). */
+  get paiementStatusClass(): string {
+    const statut = (this.batteryDiagnostic()?.statut_paiement ?? '').toLowerCase();
+    if (statut.includes('impay')) return 'eqd-bdiag-measure-value--danger';
+    if (statut.includes('retard')) return 'eqd-bdiag-measure-value--warning';
+    if (statut.includes('pay')) return 'eqd-bdiag-measure-value--success';
+    return '';
   }
 
   get batteryCapacityDisplay(): string {
