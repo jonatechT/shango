@@ -126,10 +126,10 @@ export class EquipmentService {
 
   /** Données identiques à celles affichées jusqu'ici dans le tableau du parc */
   private readonly defaultEquipments: Equipment[] = [
-     { id: '354123456789012', nom: 'Kit solaire #SK-045', statut: 'En alerte', localisation: '12.3685°N, -1.5250°E', lienLocalisation: '12.3685,-1.5250', miseEnLigne: '14 mars 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: '354123456789014', nom: 'Kit solaire #SK-067', statut: 'En alerte', localisation: '11.1784°N, -4.2979°E', lienLocalisation: '11.1784,-4.2979', miseEnLigne: '22 janvier 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: '354123456789015', nom: 'Kit solaire #SK-089', statut: 'Inspection', localisation: '12.2513°N, -2.3510°E', lienLocalisation: '12.2513,-2.3510', miseEnLigne: '5 juin 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: '354123456789016', nom: 'Kit solaire #SK-102', statut: 'Inspection', localisation: '12.3714°N, -1.5197°E', lienLocalisation: '12.3714,-1.5197', miseEnLigne: '18 septembre 2023', type: 'Kit solaire', temperature: null, tension: null },
+     { id: 'SH-001', nom: 'Kit solaire #SK-045', statut: 'En alerte', localisation: '12.3685°N, -1.5250°E', lienLocalisation: '12.3685,-1.5250', miseEnLigne: '14 mars 2024', type: 'Kit solaire', temperature: null, tension: null },
+     { id: 'SH-002', nom: 'Kit solaire #SK-067', statut: 'En alerte', localisation: '11.1784°N, -4.2979°E', lienLocalisation: '11.1784,-4.2979', miseEnLigne: '22 janvier 2024', type: 'Kit solaire', temperature: null, tension: null },
+     { id: 'SH-003', nom: 'Kit solaire #SK-089', statut: 'Inspection', localisation: '12.2513°N, -2.3510°E', lienLocalisation: '12.2513,-2.3510', miseEnLigne: '5 juin 2024', type: 'Kit solaire', temperature: null, tension: null },
+     { id: 'SH-004', nom: 'Kit solaire #SK-102', statut: 'Inspection', localisation: '12.3714°N, -1.5197°E', lienLocalisation: '12.3714,-1.5197', miseEnLigne: '18 septembre 2023', type: 'Kit solaire', temperature: null, tension: null },
   ];
 
   /**
@@ -153,17 +153,21 @@ export class EquipmentService {
     return [...this.defaultEquipments];
   }
 
+  /** Un ID au format court courant, ex. "SH-014". */
+  private static readonly CLEAN_ID_RE = /^SH-(\d+)$/i;
+
   /**
-   * Migration : les équipements créés à la volée avant l'introduction du
-   * format d'ID court ("SH001") portaient un identifiant technique généré
-   * (ex. "EQ-KIT-SOLAIRE-STR-HO-02-mu44vj13"). On les fait glisser vers le
-   * nouveau format ici, une seule fois, pour les parcs déjà persistés.
+   * Migration : tout équipement dont l'ID n'est pas déjà au format court
+   * "SH-001" (IMEI par défaut, identifiant technique généré du type
+   * "EQ-KIT-SOLAIRE-STR-HO-02-mu44vj13", ou ancien format sans tiret
+   * "SH001") est glissé vers ce format, une seule fois, pour les parcs déjà
+   * persistés.
    */
   private migrateLegacyIds(equipments: Equipment[]): Equipment[] {
     const migrated = [...equipments];
     let changed = false;
     for (let i = 0; i < migrated.length; i++) {
-      if (!migrated[i].id.startsWith('EQ-')) continue;
+      if (EquipmentService.CLEAN_ID_RE.test(migrated[i].id)) continue;
       migrated[i] = { ...migrated[i], id: this.nextCleanId(migrated) };
       changed = true;
     }
@@ -174,17 +178,17 @@ export class EquipmentService {
     return migrated;
   }
 
-  /** Prochain identifiant court disponible, format "SH001" (jamais réutilisé). */
+  /** Prochain identifiant court disponible, format "SH-001" (jamais réutilisé). */
   private nextCleanId(pool: Equipment[] = this.equipments): string {
     const used = new Set(
       pool
-        .map(e => /^SH(\d+)$/i.exec(e.id)?.[1])
+        .map(e => EquipmentService.CLEAN_ID_RE.exec(e.id)?.[1])
         .filter((n): n is string => !!n)
         .map(Number)
     );
     let next = 1;
     while (used.has(next)) next++;
-    return 'SH' + next.toString().padStart(3, '0');
+    return 'SH-' + next.toString().padStart(3, '0');
   }
 
   private saveEquipments(): void {
@@ -199,6 +203,11 @@ export class EquipmentService {
 
   getById(id: string): Equipment | undefined {
     return this.equipments.find(e => e.id === id);
+  }
+
+  /** Prochain identifiant court disponible (format "SH-001"), pour pré-remplir/compléter un formulaire. */
+  generateEquipmentId(): string {
+    return this.nextCleanId();
   }
 
   /**

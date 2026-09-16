@@ -138,7 +138,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                     name="equipmentId"
                     type="text"
                     class="eqm-input"
-                    placeholder="Ex : 354123456789012"
+                    placeholder="Ex : SH-001"
                     [(ngModel)]="equipmentId"
                   />
                 </div>
@@ -396,7 +396,7 @@ export class EquipmentFormModalComponent {
         });
 
     const equipment: Equipment = {
-      id: this.equipmentId.trim() || `EQ-${Date.now()}`,
+      id: this.equipmentId.trim() || this.equipmentService.generateEquipmentId(),
       nom,
       statut: 'En ligne',
       localisation: 'En attente du GPS (IoT)',

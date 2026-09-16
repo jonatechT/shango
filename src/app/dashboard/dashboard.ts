@@ -30,7 +30,7 @@ export class DashboardComponent implements OnInit {
       time: 'Il y a 10 min',
       status: 'En cours',
       statusClass: 'status-progress',
-      id: '354123456789012'
+      id: 'SH-001'
     }
   ];
 
@@ -39,12 +39,12 @@ export class DashboardComponent implements OnInit {
     {
       title: 'Violation de box — Kit solaire #SK-045',
       time: 'Il y a 5 min',
-      id: '354123456789012'
+      id: 'SH-001'
     },
     {
       title: 'Déplacement non autorisé — Kit solaire #SK-067',
       time: 'Il y a 28 min',
-      id: '354123456789014'
+      id: 'SH-002'
     }
   ];
 
