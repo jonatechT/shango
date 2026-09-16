@@ -47,6 +47,54 @@ import { StructureService } from '../../superadmin/services/structure.service';
             <p>Aucune alerte en cours. Tout est sous contrôle.</p>
           </div>
         } @else {
+          <!-- Barre de filtres -->
+          <div class="alerts-filters">
+            <div class="filter-pills">
+              <button type="button" class="filter-pill" [class.active]="filtreSeverite === 'toutes'" (click)="filtreSeverite = 'toutes'">
+                Toutes <span class="filter-pill-count">{{ items.length }}</span>
+              </button>
+              <button type="button" class="filter-pill filter-pill--critique" [class.active]="filtreSeverite === 'Critique'" (click)="filtreSeverite = 'Critique'">
+                <i class="fa-solid fa-circle-exclamation"></i> Critiques <span class="filter-pill-count">{{ getCritiques() }}</span>
+              </button>
+              <button type="button" class="filter-pill filter-pill--avertissement" [class.active]="filtreSeverite === 'Avertissement'" (click)="filtreSeverite = 'Avertissement'">
+                <i class="fa-solid fa-triangle-exclamation"></i> Avertissements <span class="filter-pill-count">{{ getAvertissements() }}</span>
+              </button>
+            </div>
+
+            <div class="filter-right">
+              <div class="filter-select-wrap">
+                <i class="fa-solid fa-cube filter-select-icon"></i>
+                <select class="filter-select" [(ngModel)]="filtreType" aria-label="Filtrer par type d'équipement">
+                  <option value="toutes">Tous les types</option>
+                  @for (type of typesDisponibles; track type) {
+                    <option [value]="type">{{ type }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="alerts-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input
+                  type="text"
+                  placeholder="Rechercher un équipement (nom ou n°)..."
+                  [(ngModel)]="rechercheEquipement"
+                  class="alerts-search-input"
+                />
+                @if (rechercheEquipement) {
+                  <button type="button" class="alerts-search-clear" title="Effacer" (click)="rechercheEquipement = ''">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          @if (itemsFiltres.length === 0) {
+            <div class="empty-state">
+              <i class="fa-solid fa-filter-circle-xmark empty-icon empty-icon--muted"></i>
+              <p>Aucune alerte ne correspond à ces filtres.</p>
+            </div>
+          } @else {
           <div class="table-card">
             <div class="table-wrapper">
               <table class="data-table">
@@ -60,7 +108,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
                   </tr>
                 </thead>
                 <tbody>
-                  @for (item of items; track item.id) {
+                  @for (item of itemsFiltres; track item.id) {
                     <tr (click)="ouvrirDetail(item)">
                       <td>
                         <div class="equipment-cell">
@@ -106,6 +154,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
               </table>
             </div>
           </div>
+          }
         }
       </div>
 
@@ -238,6 +287,48 @@ import { StructureService } from '../../superadmin/services/structure.service';
 
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px; background: #FFFFFF; border: 1px dashed #CBD5E1; border-radius: 12px; color: #94A3B8; text-align: center; }
     .empty-icon { font-size: 32px; color: #22C55E; }
+    .empty-icon--muted { color: #94A3B8; }
+
+    /* ===== Barre de filtres ===== */
+    .alerts-filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .filter-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px;
+      border: 1px solid #E2E8F0; background: #FFFFFF; color: #475569; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+    }
+    .filter-pill:hover { border-color: #CBD5E1; background: #F8FAFC; }
+    .filter-pill.active { background: #2563EB; border-color: #2563EB; color: #FFFFFF; }
+    .filter-pill--critique.active { background: #DC2626; border-color: #DC2626; }
+    .filter-pill--avertissement.active { background: #D97706; border-color: #D97706; }
+    .filter-pill-count {
+      display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+      padding: 0 5px; border-radius: 999px; background: rgba(15, 23, 42, 0.08); font-size: 10.5px; font-weight: 700;
+    }
+    .filter-pill.active .filter-pill-count { background: rgba(255, 255, 255, 0.25); }
+
+    .filter-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .filter-select-wrap { position: relative; display: flex; align-items: center; }
+    .filter-select-icon { position: absolute; left: 12px; color: #94A3B8; font-size: 12px; pointer-events: none; }
+    .filter-select {
+      appearance: none; padding: 9px 32px 9px 32px; border: 1px solid #E2E8F0; border-radius: 10px;
+      background: #FFFFFF; font-size: 12.5px; font-weight: 600; color: #334155; cursor: pointer;
+      font-family: inherit; min-width: 170px;
+    }
+    .filter-select:focus { outline: none; border-color: #2563EB; }
+
+    .alerts-search { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 10px; background: #FFFFFF; min-width: 260px; }
+    .alerts-search i { color: #94A3B8; font-size: 13px; }
+    .alerts-search-input { border: none; outline: none; background: transparent; font-size: 13px; color: #0F172A; width: 100%; font-family: inherit; }
+    .alerts-search-clear { border: none; background: transparent; color: #94A3B8; cursor: pointer; padding: 2px; display: flex; align-items: center; }
+    .alerts-search-clear:hover { color: #475569; }
+
+    @media (max-width: 768px) {
+      .alerts-filters { flex-direction: column; align-items: stretch; }
+      .filter-right { flex-direction: column; align-items: stretch; }
+      .alerts-search { min-width: 0; }
+      .filter-select { width: 100%; }
+    }
 
     .table-card { background: transparent; border: none; padding: 0; }
     .table-wrapper { overflow-x: auto; }
@@ -332,6 +423,13 @@ export class AlertsPageComponent {
   /** Description libre (optionnelle) transmise aux techniciens affectés via la notification. */
   interventionDescription = '';
 
+  /** Filtre de sévérité actif sur la liste des alertes. */
+  filtreSeverite: 'toutes' | 'Critique' | 'Avertissement' = 'toutes';
+  /** Filtre de type d'équipement actif ('toutes' = tous les types). */
+  filtreType = 'toutes';
+  /** Recherche libre par nom d'équipement ou numéro d'alerte. */
+  rechercheEquipement = '';
+
   constructor(
     private maintenanceService: MaintenanceService,
     private equipmentService: EquipmentService,
@@ -346,6 +444,26 @@ export class AlertsPageComponent {
     const sid = this.authService.getUser()?.structureId || null;
     // Chaque structure ne voit que SES alertes (le SuperAdmin, sans structureId, voit tout).
     return this.maintenanceService.getItems().filter(i => !i.prisPar && i.alertes > 0 && (!sid || i.structureId === sid));
+  }
+
+  /** Types d'équipement présents dans les alertes courantes (pour la liste déroulante de filtre). */
+  get typesDisponibles(): string[] {
+    return Array.from(new Set(this.items.map(i => i.type))).sort((a, b) => a.localeCompare(b));
+  }
+
+  /** Alertes après application des filtres (sévérité, type d'équipement, recherche). */
+  get itemsFiltres(): MaintenanceItem[] {
+    const q = this.rechercheEquipement.trim().toLowerCase();
+    return this.items.filter(item => {
+      if (this.filtreSeverite !== 'toutes' && item.severite !== this.filtreSeverite) return false;
+      if (this.filtreType !== 'toutes' && item.type !== this.filtreType) return false;
+      if (q) {
+        const matchNom = item.equipment.toLowerCase().includes(q);
+        const matchNumero = this.padNumero(item.numero).includes(q) || item.numero.toString().includes(q);
+        if (!matchNom && !matchNumero) return false;
+      }
+      return true;
+    });
   }
 
   getCritiques(): number {
