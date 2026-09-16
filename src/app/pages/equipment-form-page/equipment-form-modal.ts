@@ -52,7 +52,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                     name="nom"
                     type="text"
                     class="eqm-input"
-                    placeholder="Ex : Kit solaire"
+                    placeholder="Ex : Kit solaire SH-001"
                     [(ngModel)]="nom"
                     required
                   />

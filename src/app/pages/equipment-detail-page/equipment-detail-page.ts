@@ -279,8 +279,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
           <header class="eqd-bdiag-head">
             <span class="eqd-chip eqd-chip-purple eqd-chip-lg"><i class="fa-solid fa-battery-full"></i></span>
             <div class="eqd-bdiag-head-text">
-              <h3 class="eqd-bdiag-title">État SOH et RUL de la batterie</h3>
-              <p class="eqd-bdiag-sub">Analyse à la demande de l'état de la batterie</p>
+              <h3 class="eqd-bdiag-title">SOH et RUL</h3>
             </div>
             <div class="eqd-bdiag-head-actions">
               @if (batteryDiagnostic()) {
@@ -406,6 +405,18 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-bdiag-msg-text">{{ batteryMessageDisplay }}</span>
             </div>
           }
+
+          <!-- ===== Glossaire SOH / RUL ===== -->
+          <div class="eqd-bdiag-glossary">
+            <div class="eqd-bdiag-glossary-item">
+              <span class="eqd-bdiag-glossary-term">SOH <span class="eqd-bdiag-glossary-full">(State of Health)</span></span>
+              <span class="eqd-bdiag-glossary-def">État de santé de la batterie : pourcentage de sa capacité actuelle par rapport à sa capacité d'origine.</span>
+            </div>
+            <div class="eqd-bdiag-glossary-item">
+              <span class="eqd-bdiag-glossary-term">RUL <span class="eqd-bdiag-glossary-full">(Remaining Useful Life)</span></span>
+              <span class="eqd-bdiag-glossary-def">Durée de vie utile restante estimée avant qu'un remplacement de la batterie soit nécessaire.</span>
+            </div>
+          </div>
         </section>
 <!-- ===== Historique de la batterie ===== -->
         <section class="eqd-battery-history">
@@ -1398,6 +1409,23 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       flex: 1;
       min-width: 0;
       word-break: break-word;
+    }
+
+    .eqd-bdiag-glossary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px dashed rgba(23, 32, 51, 0.12);
+    }
+    .eqd-bdiag-glossary-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .eqd-bdiag-glossary-term { font-size: 13px; font-weight: 700; color: #172033; }
+    .eqd-bdiag-glossary-full { font-weight: 500; color: #7A8499; font-size: 12px; }
+    .eqd-bdiag-glossary-def { font-size: 12.5px; line-height: 1.5; color: #64748B; }
+
+    @media (max-width: 640px) {
+      .eqd-bdiag-glossary { grid-template-columns: 1fr; }
     }
 
     .eqd-bdiag-msg--success {
