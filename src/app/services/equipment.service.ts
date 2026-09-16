@@ -145,12 +145,46 @@ export class EquipmentService {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Equipment[];
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return this.migrateLegacyIds(parsed);
       }
     } catch {
       /* données corrompues → valeurs par défaut */
     }
     return [...this.defaultEquipments];
+  }
+
+  /**
+   * Migration : les équipements créés à la volée avant l'introduction du
+   * format d'ID court ("SH001") portaient un identifiant technique généré
+   * (ex. "EQ-KIT-SOLAIRE-STR-HO-02-mu44vj13"). On les fait glisser vers le
+   * nouveau format ici, une seule fois, pour les parcs déjà persistés.
+   */
+  private migrateLegacyIds(equipments: Equipment[]): Equipment[] {
+    const migrated = [...equipments];
+    let changed = false;
+    for (let i = 0; i < migrated.length; i++) {
+      if (!migrated[i].id.startsWith('EQ-')) continue;
+      migrated[i] = { ...migrated[i], id: this.nextCleanId(migrated) };
+      changed = true;
+    }
+    if (changed) {
+      this.equipments = migrated;
+      this.saveEquipments();
+    }
+    return migrated;
+  }
+
+  /** Prochain identifiant court disponible, format "SH001" (jamais réutilisé). */
+  private nextCleanId(pool: Equipment[] = this.equipments): string {
+    const used = new Set(
+      pool
+        .map(e => /^SH(\d+)$/i.exec(e.id)?.[1])
+        .filter((n): n is string => !!n)
+        .map(Number)
+    );
+    let next = 1;
+    while (used.has(next)) next++;
+    return 'SH' + next.toString().padStart(3, '0');
   }
 
   private saveEquipments(): void {
@@ -181,7 +215,7 @@ export class EquipmentService {
     if (existing) return existing;
 
     const created: Equipment = {
-      id: 'EQ-' + nom.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase() + '-' + Date.now().toString(36),
+      id: this.nextCleanId(),
       nom,
       statut: 'En ligne',
       localisation: hints?.localisation || '',

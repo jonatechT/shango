@@ -76,7 +76,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input
                   type="text"
-                  placeholder="Rechercher un équipement (nom ou n°)..."
+                  placeholder="Rechercher un équipement (nom ou ID)..."
                   [(ngModel)]="rechercheEquipement"
                   class="alerts-search-input"
                 />
@@ -103,7 +103,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
                     <th>Équipement</th>
                     <th>Type</th>
                     <th>Sévérité</th>
-                    <th>Numéro</th>
+                    <th>ID</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -123,7 +123,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
                           <span class="severite-badge severite-avertissement"><i class="fa-solid fa-triangle-exclamation"></i> Avertissement</span>
                         }
                       </td>
-                      <td><span class="numero-code">N°{{ padNumero(item.numero) }}</span></td>
+                      <td><span class="numero-code">{{ formatAlerteId(item.numero) }}</span></td>
                       <td class="actions-cell">
                         @if (isAdminUser()) {
                           @if (actionAdmin === 'prendre') {
@@ -458,9 +458,10 @@ export class AlertsPageComponent {
       if (this.filtreSeverite !== 'toutes' && item.severite !== this.filtreSeverite) return false;
       if (this.filtreType !== 'toutes' && item.type !== this.filtreType) return false;
       if (q) {
+        const qId = q.replace(/^sh-?/, '');
         const matchNom = item.equipment.toLowerCase().includes(q);
-        const matchNumero = this.padNumero(item.numero).includes(q) || item.numero.toString().includes(q);
-        if (!matchNom && !matchNumero) return false;
+        const matchId = this.padNumero(item.numero).includes(qId) || item.numero.toString().includes(qId);
+        if (!matchNom && !matchId) return false;
       }
       return true;
     });
@@ -476,6 +477,11 @@ export class AlertsPageComponent {
 
   padNumero(numero: number): string {
     return numero.toString().padStart(3, '0');
+  }
+
+  /** Identifiant affiché pour une alerte, format "SH-001". */
+  formatAlerteId(numero: number): string {
+    return 'SH-' + this.padNumero(numero);
   }
 
   isAdminUser(): boolean {

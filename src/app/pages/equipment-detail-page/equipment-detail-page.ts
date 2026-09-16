@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, ViewChild, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
@@ -14,7 +14,6 @@ import { MaintenanceItem, MaintenanceService } from '../../services/maintenance.
 import { UsersService } from '../../services/users.service';
 import { AuthService } from '../../auth/auth.service';
 import { BatteryHistoryChartsComponent } from '../../components/battery-history-charts/battery-history-charts';
-import { BatteryExportService } from '../../services/battery-export.service';
 
 @Component({
   selector: 'app-equipment-detail-page',
@@ -184,7 +183,7 @@ import { BatteryExportService } from '../../services/battery-export.service';
         <section class="eqd-summary">
           <div class="eqd-summary-main">
             <div class="eqd-summary-info">
-              <h2 class="eqd-summary-name">{{ equipment.nom }}</h2>
+              <h2 class="eqd-summary-name">{{ equipmentDisplayName }}</h2>
               <div class="eqd-summary-id">
                 <span class="eqd-id-chip">ID</span>
                 <span class="eqd-id-value">{{ equipment.id }}</span>
@@ -414,18 +413,8 @@ import { BatteryExportService } from '../../services/battery-export.service';
             <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-chart-line"></i></span>
             <div class="eqd-bdiag-head-text">
               <h3 class="eqd-bdiag-title">Historique de la batterie</h3>
-              <p class="eqd-bdiag-sub">Évolution du SOH, de la capacité et de la température.</p>
+              <p class="eqd-bdiag-sub">Évolution du SOH (état de santé de la batterie).</p>
             </div>
-            @if (batteryHistory().length > 0) {
-              <div class="eqd-history-actions">
-                <button type="button" class="eqd-btn eqd-btn-ghost" (click)="exportCsv()" title="Télécharger l'historique (CSV)">
-                  <i class="fa-solid fa-file-csv"></i><span>Télécharger CSV</span>
-                </button>
-                <button type="button" class="eqd-btn eqd-btn-primary" (click)="exportPdf()" title="Télécharger le rapport (PDF)">
-                  <i class="fa-solid fa-file-pdf"></i><span>Télécharger PDF</span>
-                </button>
-              </div>
-            }
           </header>
 
           @if (batteryHistoryLoading()) {
@@ -444,12 +433,6 @@ import { BatteryExportService } from '../../services/battery-export.service';
             </div>
           } @else {
             <app-battery-history-charts [history]="batteryHistory()" />
-            @if (exportError()) {
-              <div class="eqd-export-error">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                {{ exportError() }}
-              </div>
-            }
           }
         </section>
 
@@ -1507,13 +1490,6 @@ import { BatteryExportService } from '../../services/battery-export.service';
       overflow: hidden;
     }
 
-    .eqd-history-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
     .eqd-export-error {
       display: flex;
       align-items: center;
@@ -1733,8 +1709,6 @@ import { BatteryExportService } from '../../services/battery-export.service';
     }
 
     @media (max-width: 768px) {
-      .eqd-history-actions { width: 100%; }
-      .eqd-history-actions .eqd-btn { flex: 1 1 auto; }
       .eqd-battery-history { padding: 22px; }
     }
 
@@ -2032,6 +2006,11 @@ export class EquipmentDetailPageComponent implements OnInit {
   equipment: Equipment | null = null;
   diagnostic: EquipmentDiagnostic = { etat: 'État normal', gravite: '—', anomalie: null };
 
+  /** Nom affiché en en-tête : le suffixe « #XXX » (instance) est retiré, l'ID en dessous suffit à identifier l'équipement précis. */
+  get equipmentDisplayName(): string {
+    return this.equipment?.nom.replace(/\s*#.*$/, '').trim() || '';
+  }
+
   /* ===== États asynchrones en signals — app zoneless (Angular sans zone.js) :
      une mutation de propriété simple ne déclenche PAS la détection de
      changements ; seuls les signals garantissent la mise à jour de la vue
@@ -2050,8 +2029,6 @@ export class EquipmentDetailPageComponent implements OnInit {
   readonly batteryDiagnosticLaunched = signal(false);
   /** true si le dernier diagnostic a été arrêté manuellement par l'utilisateur. */
   readonly batteryDiagnosticArrete = signal(false);
-  /** Erreur du dernier export CSV/PDF. */
-  readonly exportError = signal<string | null>(null);
   /** Abonnement HTTP du diagnostic en cours (permet l'arrêt via le bouton « Arrêter »). */
   private batteryDiagnosticSubscription: Subscription | null = null;
   source: 'equipment' | 'alerts' | 'maintenance' = 'equipment';
@@ -2064,17 +2041,13 @@ export class EquipmentDetailPageComponent implements OnInit {
   protected readonly statusMessageType = signal<'success' | 'error'>('success');
   private statusMessageTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  @ViewChild(BatteryHistoryChartsComponent)
-  historyCharts?: BatteryHistoryChartsComponent;
-
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private equipmentService: EquipmentService,
     private maintenanceService: MaintenanceService,
     private usersService: UsersService,
-    private authService: AuthService,
-    private batteryExportService: BatteryExportService
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -2521,32 +2494,6 @@ export class EquipmentDetailPageComponent implements OnInit {
       ' ' +
       d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     );
-  }
-
-  /* ===== Exports (CSV + PDF) ===== */
-
-  exportCsv(): void {
-    if (!this.equipment || this.batteryHistory().length === 0) return;
-    this.exportError.set(null);
-    this.batteryExportService.exportCsv(this.equipment.id, this.batteryHistory());
-  }
-
-  async exportPdf(): Promise<void> {
-    if (!this.equipment || this.batteryHistory().length === 0) return;
-    this.exportError.set(null);
-    try {
-      const sohImageDataUrl = this.historyCharts?.getSohChartImageDataUrl() ?? null;
-      await this.batteryExportService.exportPdf({
-        deviceId: this.equipment.id,
-        rapportDate: new Date().toISOString(),
-        diagnostic: this.batteryDiagnostic(),
-        history: this.batteryHistory(),
-        sohImageDataUrl
-      });
-    } catch (err) {
-      console.error('Export PDF batterie', err);
-      this.exportError.set('Le rapport PDF n\'a pas pu être généré. Réessayez plus tard.');
-    }
   }
 
   /**
