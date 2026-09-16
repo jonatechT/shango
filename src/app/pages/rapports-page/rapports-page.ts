@@ -581,6 +581,27 @@ export class RapportsPageComponent implements OnInit {
   }
 
 /**
+   * Charge le logo Shango (public/logo.jpg) et le convertit en data URL,
+   * seul format que jsPDF sait intégrer dans un PDF via `addImage`.
+   * Retourne null si le logo est introuvable (le PDF est alors généré sans).
+   */
+  private async chargerLogoBase64(): Promise<string | null> {
+    try {
+      const res = await fetch('logo.jpg');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Exporte le rapport en PDF (mise en page professionnelle : bandeau
    * d'en-tête, fiche d'informations en tableau, section conformité le cas
    * échéant, pièces remplacées, pied de page) plutôt qu'un simple fichier
@@ -593,6 +614,7 @@ export class RapportsPageComponent implements OnInit {
     try {
       const { jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
+      const logoDataUrl = await this.chargerLogoBase64();
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -604,13 +626,18 @@ export class RapportsPageComponent implements OnInit {
       // ===== Bandeau d'en-tête =====
       doc.setFillColor(30, 58, 138);
       doc.rect(0, 0, pageWidth, 30, 'F');
+      const logoSize = 12;
+      const texteX = logoDataUrl ? margin + logoSize + 4 : margin;
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, 'JPEG', margin, 9, logoSize, logoSize);
+      }
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
-      doc.text(estConformite ? 'RAPPORT DE CONFORMITÉ' : "RAPPORT D'INTERVENTION", margin, 12);
+      doc.text(estConformite ? 'RAPPORT DE CONFORMITÉ' : "RAPPORT D'INTERVENTION", texteX, 12);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text('SHANGO — plateforme de suivi et de télémaintenance des équipements', margin, 18);
+      doc.text('SHANGO — plateforme de suivi et de télémaintenance des équipements', texteX, 18);
       doc.setFontSize(9);
       doc.text(`Édité le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, 18, { align: 'right' });
       doc.setTextColor(20, 30, 50);

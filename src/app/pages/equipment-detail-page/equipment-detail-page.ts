@@ -279,7 +279,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
           <header class="eqd-bdiag-head">
             <span class="eqd-chip eqd-chip-purple eqd-chip-lg"><i class="fa-solid fa-battery-full"></i></span>
             <div class="eqd-bdiag-head-text">
-              <h3 class="eqd-bdiag-title">Diagnostic batterie</h3>
+              <h3 class="eqd-bdiag-title">État SOH et RUL de la batterie</h3>
               <p class="eqd-bdiag-sub">Analyse à la demande de l'état de la batterie</p>
             </div>
             <div class="eqd-bdiag-head-actions">

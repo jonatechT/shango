@@ -219,7 +219,14 @@
               </div>
               <div class="sam-field">
                 <label class="sam-label">Téléphone</label>
-                <input type="tel" class="sam-input" [(ngModel)]="form.telephone" placeholder="+226 XX XX XX XX" />
+                <div class="sam-phone-group">
+                  <select class="sam-input sam-phone-code" [(ngModel)]="form.indicatif" aria-label="Indicatif téléphonique">
+                    @for (ind of indicatifs; track ind.code) {
+                      <option [value]="ind.code">{{ ind.code }} — {{ ind.pays }}</option>
+                    }
+                  </select>
+                  <input type="tel" class="sam-input sam-phone-number" [(ngModel)]="form.telephone" placeholder="XX XX XX XX" />
+                </div>
               </div>
             </div>
           </div>
@@ -277,7 +284,14 @@
               </div>
               <div class="sam-field">
                 <label class="sam-label">Téléphone</label>
-                <input type="tel" class="sam-input" [(ngModel)]="form.adminTelephone" placeholder="+226 XX XX XX XX" />
+                <div class="sam-phone-group">
+                  <select class="sam-input sam-phone-code" [(ngModel)]="form.adminIndicatif" aria-label="Indicatif téléphonique">
+                    @for (ind of indicatifs; track ind.code) {
+                      <option [value]="ind.code">{{ ind.code }} — {{ ind.pays }}</option>
+                    }
+                  </select>
+                  <input type="tel" class="sam-input sam-phone-number" [(ngModel)]="form.adminTelephone" placeholder="XX XX XX XX" />
+                </div>
               </div>
               <div class="sam-field">
                 <label class="sam-label">Mot de passe temporaire <span class="sam-required">*</span></label>
@@ -306,7 +320,7 @@
                 <h5 class="sam-review-title"><i class="fa-solid fa-building-columns"></i> Structure</h5>
                 <div class="sam-review-row"><span>Nom</span><strong>{{ form.nom }}</strong></div>
                 <div class="sam-review-row"><span>Email</span><strong>{{ form.email }}</strong></div>
-                <div class="sam-review-row"><span>Téléphone</span><strong>{{ form.telephone || '—' }}</strong></div>
+                <div class="sam-review-row"><span>Téléphone</span><strong>{{ form.telephone ? (form.indicatif + ' ' + form.telephone) : '—' }}</strong></div>
                 <div class="sam-review-row"><span>Ville</span><strong>{{ form.ville }}</strong></div>
                 <div class="sam-review-row"><span>Pays</span><strong>{{ form.pays }}</strong></div>
                 <div class="sam-review-row"><span>Adresse</span><strong>{{ form.adresse || '—' }}</strong></div>
@@ -319,7 +333,7 @@
                 @if (form.adminNom || form.adminEmail) {
                   <div class="sam-review-row"><span>Nom complet</span><strong>{{ form.adminNom || '—' }}</strong></div>
                   <div class="sam-review-row"><span>Email</span><strong>{{ form.adminEmail || '—' }}</strong></div>
-                  <div class="sam-review-row"><span>Téléphone</span><strong>{{ form.adminTelephone || '—' }}</strong></div>
+                  <div class="sam-review-row"><span>Téléphone</span><strong>{{ form.adminTelephone ? (form.adminIndicatif + ' ' + form.adminTelephone) : '—' }}</strong></div>
                   <div class="sam-review-row"><span>Mot de passe</span><strong>{{ form.adminMotDePasse ? '••••••••' : '—' }}</strong></div>
                 } @else {
                   <p class="sam-review-empty"><i class="fa-solid fa-circle-info"></i> Aucun administrateur ne sera créé.</p>

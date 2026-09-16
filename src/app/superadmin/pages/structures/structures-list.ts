@@ -10,6 +10,7 @@ interface StructureForm {
   nom: string;
   code: string;
   email: string;
+  indicatif: string;
   telephone: string;
   adresse: string;
   ville: string;
@@ -18,9 +19,27 @@ interface StructureForm {
   description: string;
   adminNom: string;
   adminEmail: string;
+  adminIndicatif: string;
   adminTelephone: string;
   adminMotDePasse: string;
 }
+
+/** Indicatifs téléphoniques proposés dans le formulaire (Afrique de l'Ouest en priorité). */
+export const INDICATIFS_TELEPHONE: { code: string; pays: string }[] = [
+  { code: '+226', pays: 'Burkina Faso' },
+  { code: '+225', pays: "Côte d'Ivoire" },
+  { code: '+223', pays: 'Mali' },
+  { code: '+227', pays: 'Niger' },
+  { code: '+228', pays: 'Togo' },
+  { code: '+229', pays: 'Bénin' },
+  { code: '+221', pays: 'Sénégal' },
+  { code: '+233', pays: 'Ghana' },
+  { code: '+234', pays: 'Nigeria' },
+  { code: '+237', pays: 'Cameroun' },
+  { code: '+241', pays: 'Gabon' },
+  { code: '+33', pays: 'France' },
+  { code: '+1', pays: 'États-Unis / Canada' }
+];
 
 @Component({
   selector: 'app-structures-list',
@@ -45,6 +64,7 @@ export class StructuresListComponent implements OnInit {
   protected isSaving = signal(false);
 
   protected form: StructureForm = this.emptyForm();
+  protected readonly indicatifs = INDICATIFS_TELEPHONE;
 
   protected filteredStructures = computed(() => {
     const all = this.structureService.getAllStructures();
@@ -105,6 +125,7 @@ protected verStructure(id: string): void {
       nom: '',
       code: '',
       email: '',
+      indicatif: '+226',
       telephone: '',
       adresse: '',
       ville: '',
@@ -113,6 +134,7 @@ protected verStructure(id: string): void {
       description: '',
       adminNom: '',
       adminEmail: '',
+      adminIndicatif: '+226',
       adminTelephone: '',
       adminMotDePasse: ''
     };
@@ -185,6 +207,12 @@ protected verStructure(id: string): void {
     }
   }
 
+  /** Combine l'indicatif et le numéro saisi (ex. "+226" + "70 12 34 56" → "+226 70 12 34 56"). */
+  private telephoneComplet(indicatif: string, numero: string): string {
+    const n = numero.trim();
+    return n ? `${indicatif} ${n}` : '';
+  }
+
   protected submitCreate(): void {
     this.stepError.set('');
     this.message.set('');
@@ -197,14 +225,14 @@ protected verStructure(id: string): void {
         code: this.genererCodeStructure(f.nom.trim()),
         description: f.description.trim(),
         email: f.email.trim().toLowerCase(),
-        telephone: f.telephone.trim(),
+        telephone: this.telephoneComplet(f.indicatif, f.telephone),
         adresse: f.adresse.trim(),
         ville: f.ville.trim(),
         pays: f.pays.trim(),
         statut: f.statut,
         adminNom: f.adminNom.trim() || undefined,
         adminEmail: f.adminEmail.trim().toLowerCase() || undefined,
-        adminTelephone: f.adminTelephone.trim() || undefined
+        adminTelephone: this.telephoneComplet(f.adminIndicatif, f.adminTelephone) || undefined
       });
 
       // Créer l'administrateur de structure si renseigné
@@ -216,7 +244,7 @@ protected verStructure(id: string): void {
           role: 'ADMIN_STRUCTURE',
           structureId: created.id,
           statut: 'ACTIVE',
-          telephone: f.adminTelephone.trim() || undefined,
+          telephone: this.telephoneComplet(f.adminIndicatif, f.adminTelephone) || undefined,
           dateCreation: new Date().toISOString(),
           motDePasse: f.adminMotDePasse
         };

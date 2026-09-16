@@ -546,6 +546,11 @@ body.dark-mode .sa-modal-icon-warning { background: rgba(255, 255, 255, 0.14) !i
 .sam-select { cursor: pointer; }
 .sam-textarea { min-height: 88px; resize: vertical; line-height: 1.6; }
 
+/* Indicatif téléphonique + numéro, sur une même ligne */
+.sam-phone-group { display: flex; gap: 8px; }
+.sam-phone-code { flex: 0 0 128px; cursor: pointer; padding-left: 10px; padding-right: 6px; }
+.sam-phone-number { flex: 1 1 auto; min-width: 0; }
+
 /* Bordures des champs teintées selon la couleur de l'étape en cours */
 .sam-step-content--blue .sam-input,
 .sam-step-content--green .sam-input,

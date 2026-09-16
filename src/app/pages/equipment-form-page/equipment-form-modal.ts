@@ -130,19 +130,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                   }
                 </div>
 
-                <!-- Identifiant de l'équipement (IMEI / ID du boîtier IoT) -->
-                <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-id">Équipement ID</label>
-                  <input
-                    id="eqm-id"
-                    name="equipmentId"
-                    type="text"
-                    class="eqm-input"
-                    placeholder="Ex : SH-001"
-                    [(ngModel)]="equipmentId"
-                  />
-                </div>
-<!-- Date de mise en ligne -->
+                <!-- Date de mise en ligne -->
                 <div class="eqm-field">
                   <label class="eqm-label" for="eqm-mise">Date de mise en ligne</label>
                   <input
@@ -321,7 +309,6 @@ export class EquipmentFormModalComponent {
   type = '';
   typeAutre = '';
   protected typeOpen = signal(false);
-  equipmentId = '';
   miseEnLigne = '';
   description = '';
 
@@ -348,7 +335,6 @@ export class EquipmentFormModalComponent {
     this.type = '';
     this.typeAutre = '';
     this.typeOpen.set(false);
-    this.equipmentId = '';
     this.miseEnLigne = '';
     this.description = '';
     this.submitted.set(false);
@@ -396,7 +382,7 @@ export class EquipmentFormModalComponent {
         });
 
     const equipment: Equipment = {
-      id: this.equipmentId.trim() || this.equipmentService.generateEquipmentId(),
+      id: this.equipmentService.generateEquipmentId(),
       nom,
       statut: 'En ligne',
       localisation: 'En attente du GPS (IoT)',
