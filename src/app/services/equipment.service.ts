@@ -34,6 +34,20 @@ export interface Equipment {
    * Aucune valeur fictive n'est introduite côté frontend.
    */
   bloque?: boolean;
+  /** Marque / modèle du matériel (ex. « Victron MultiPlus-II »). */
+  marqueModele?: string;
+  /** Numéro de série du fabricant. */
+  numeroSerie?: string;
+  /** Site / emplacement descriptif (distinct des coordonnées GPS). */
+  site?: string;
+  /** Identifiant du boîtier IoT SHANGO installé sur l'équipement. */
+  boitierId?: string;
+  /** Personne responsable de l'équipement côté structure. */
+  responsable?: string;
+  /** Photo de l'équipement, stockée en data URL (mode mock, sans backend de fichiers). */
+  photoDataUrl?: string;
+  /** Rayon autorisé (mètres) autour de la position d'installation avant alerte de déplacement. */
+  perimetreMetres?: number;
 }
 
 export interface EquipmentDiagnostic {

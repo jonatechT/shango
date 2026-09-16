@@ -2,6 +2,22 @@ import { Component, signal, WritableSignal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EquipmentService, Equipment } from '../../services/equipment.service';
 
+/** Types d'équipement proposés (liste fermée : pas de saisie libre). */
+const TYPES_EQUIPEMENT = [
+  'Kit solaire',
+  'Panneau solaire',
+  'Batterie',
+  'Onduleur',
+  'Groupe électrogène',
+  'Pompe à eau solaire',
+  'Réfrigérateur solaire',
+  'Véhicule',
+  'Moto / Tricycle',
+  'Engin minier'
+];
+
+const ETATS_EQUIPEMENT = ['En ligne', 'Hors ligne', 'En alerte', 'Inspection'];
+
 /**
  * Modale « Ajouter un équipement ».
  * S'affiche en fenêtre modale au-dessus du parc d'équipement
@@ -21,7 +37,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
             </div>
             <div class="eqm-header-title-block">
               <h3 class="eqm-title">Ajouter un équipement</h3>
-              <p class="eqm-subtitle">Position GPS et mesures transmises automatiquement par l'IoT.</p>
+              <p class="eqm-subtitle">La position GPS sera transmise automatiquement par le boîtier IoT.</p>
             </div>
             <button type="button" class="eqm-close" (click)="close()" aria-label="Fermer">
               <i class="fa-solid fa-xmark"></i>
@@ -62,6 +78,11 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                 </div>
 
                 <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-id">Équipement ID</label>
+                  <input id="eqm-id" type="text" class="eqm-input eqm-input-readonly" [value]="equipmentIdPreview" readonly />
+                </div>
+
+                <div class="eqm-field">
                   <label class="eqm-label" for="eqm-type">
                     Type / catégorie <span class="eqm-required">*</span>
                   </label>
@@ -83,63 +104,102 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
 
                     @if (typeOpen()) {
                       <ul class="eqm-select-menu" role="listbox">
-                        <li
-                          class="eqm-select-option"
-                          [class.eqm-select-option--selected]="type === 'Kit solaire'"
-                          (mousedown)="$event.preventDefault(); selectType('Kit solaire')"
-                        >
-                          <span>Kit solaire</span>
-                          @if (type === 'Kit solaire') { <i class="fa-solid fa-check"></i> }
-                        </li>
-                        <li
-                          class="eqm-select-option"
-                          [class.eqm-select-option--selected]="type === 'Véhicule'"
-                          (mousedown)="$event.preventDefault(); selectType('Véhicule')"
-                        >
-                          <span>Véhicule</span>
-                          @if (type === 'Véhicule') { <i class="fa-solid fa-check"></i> }
-                        </li>
-                        <li
-                          class="eqm-select-option"
-                          [class.eqm-select-option--selected]="type === 'Autre'"
-                          (mousedown)="$event.preventDefault(); selectType('Autre')"
-                        >
-                          <span>Autre</span>
-                          @if (type === 'Autre') { <i class="fa-solid fa-check"></i> }
-                        </li>
+                        @for (t of typesEquipement; track t) {
+                          <li
+                            class="eqm-select-option"
+                            [class.eqm-select-option--selected]="type === t"
+                            (mousedown)="$event.preventDefault(); selectType(t)"
+                          >
+                            <span>{{ t }}</span>
+                            @if (type === t) { <i class="fa-solid fa-check"></i> }
+                          </li>
+                        }
                       </ul>
                     }
                   </div>
                   @if (submitted() && !type) {
                     <span class="eqm-error">Le type est obligatoire.</span>
                   }
-                  @if (type === 'Autre') {
-                    <div class="eqm-type-custom">
-                      <input
-                        id="eqm-type-autre"
-                        name="typeAutre"
-                        type="text"
-                        class="eqm-input"
-                        placeholder="Précisez le type (ex : Pompe, Convertisseur…)"
-                        [(ngModel)]="typeAutre"
-                      />
-                      @if (submitted() && !typeAutre.trim()) {
-                        <span class="eqm-error">Veuillez préciser le type.</span>
-                      }
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-marque">Marque / modèle</label>
+                  <input id="eqm-marque" name="marqueModele" type="text" class="eqm-input" placeholder="Ex : Victron MultiPlus-II" [(ngModel)]="marqueModele" />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-serie">Numéro de série</label>
+                  <input id="eqm-serie" name="numeroSerie" type="text" class="eqm-input" placeholder="Ex : VMP2-2026-00123" [(ngModel)]="numeroSerie" />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-site">Site / emplacement</label>
+                  <input id="eqm-site" name="site" type="text" class="eqm-input" placeholder="Ex : Ouagadougou — Secteur 12" [(ngModel)]="site" />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-gps">Position GPS</label>
+                  <input id="eqm-gps" type="text" class="eqm-input eqm-input-readonly" value="En attente du GPS (IoT)" readonly />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-boitier">ID du boîtier SHANGO</label>
+                  <input id="eqm-boitier" name="boitierId" type="text" class="eqm-input" placeholder="Ex : BOX-2026-0456" [(ngModel)]="boitierId" />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-mise">Date de mise en service</label>
+                  <input id="eqm-mise" name="miseEnLigne" type="date" class="eqm-input" [(ngModel)]="miseEnLigne" />
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-etat">État de l'équipement</label>
+                  <select id="eqm-etat" name="etat" class="eqm-input" [(ngModel)]="etat">
+                    @for (e of etatsEquipement; track e) {
+                      <option [value]="e">{{ e }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="eqm-field">
+                  <label class="eqm-label" for="eqm-responsable">Responsable</label>
+                  <input id="eqm-responsable" name="responsable" type="text" class="eqm-input" placeholder="Ex : M. Ouedraogo" [(ngModel)]="responsable" />
+                </div>
+
+                <div class="eqm-field eqm-field--full">
+                  <label class="eqm-label" for="eqm-photo">Photo de l'équipement</label>
+                  <input id="eqm-photo" type="file" accept="image/*" class="eqm-input eqm-input-file" (change)="onPhotoSelected($event)" />
+                  @if (photoDataUrl) {
+                    <div class="eqm-photo-preview">
+                      <img [src]="photoDataUrl" alt="Aperçu de la photo de l'équipement" />
+                      <button type="button" class="eqm-photo-remove" (click)="removePhoto()" title="Retirer la photo">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
                     </div>
                   }
                 </div>
 
-                <!-- Date de mise en ligne -->
-                <div class="eqm-field">
-                  <label class="eqm-label" for="eqm-mise">Date de mise en ligne</label>
-                  <input
-                    id="eqm-mise"
-                    name="miseEnLigne"
-                    type="date"
-                    class="eqm-input"
-                    [(ngModel)]="miseEnLigne"
-                  />
+                <!-- Périmètre autorisé -->
+                <div class="eqm-field eqm-field--full">
+                  <label class="eqm-checkbox-label">
+                    <input type="checkbox" [(ngModel)]="perimetreActif" name="perimetreActif" />
+                    Définir un périmètre (zone à ne pas dépasser)
+                  </label>
+                  @if (perimetreActif) {
+                    <div class="eqm-perimetre-field">
+                      <label class="eqm-label" for="eqm-perimetre">Rayon autorisé (mètres)</label>
+                      <input
+                        id="eqm-perimetre"
+                        name="perimetreMetres"
+                        type="number"
+                        min="1"
+                        class="eqm-input"
+                        placeholder="Ex : 500"
+                        [(ngModel)]="perimetreMetres"
+                      />
+                      <span class="eqm-hint">Une fois la position GPS reçue, tout dépassement de ce rayon déclenchera une alerte « Déplacement non autorisé ».</span>
+                    </div>
+                  }
                 </div>
 
                 <!-- Description -->
@@ -236,6 +296,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
     .eqm-label { font-size: 12.5px; font-weight: 600; color: #334155; }
     .eqm-required { color: #EF4444; }
     .eqm-error { color: #DC2626; font-size: 12px; font-weight: 500; }
+    .eqm-hint { font-size: 11.5px; color: #94A3B8; line-height: 1.5; }
 
     .eqm-input {
       padding: 11px 14px;
@@ -248,6 +309,9 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
     }
     .eqm-input:hover { border-color: #CBD5E1; }
     .eqm-input:focus { border-color: #2563EB; background: #FFFFFF; }
+    .eqm-input-readonly { background: #F8FAFC; color: #64748B; cursor: not-allowed; }
+    .eqm-input-readonly:hover { border-color: #E2E8F0; }
+    .eqm-input-file { padding: 8px 10px; cursor: pointer; }
 
     .eqm-select-wrap { position: relative; }
     .eqm-select { cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; background-color: #FFFFFF; font-weight: 500; }
@@ -261,6 +325,7 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
       border: 1px solid #E2E8F0; border-radius: 12px;
       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1), 0 12px 32px rgba(15, 23, 42, 0.18);
       z-index: 30; animation: eqmDropIn 0.18s ease both; box-sizing: border-box;
+      max-height: 260px; overflow-y: auto;
     }
     .eqm-select-option {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -271,7 +336,31 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
     .eqm-select-option--selected { background: #EFF6FF; color: #1D4ED8; font-weight: 600; }
     .eqm-select-option i { font-size: 12px; }
 
-    .eqm-type-custom { display: flex; flex-direction: column; gap: 6px; animation: eqmSlideIn 0.25s ease both; }
+    .eqm-checkbox-label {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 600; color: #334155; cursor: pointer;
+    }
+    .eqm-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563EB; cursor: pointer; }
+    .eqm-perimetre-field {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-top: 12px; padding: 14px; border-radius: 10px;
+      background: #F8FAFC; border: 1px solid #E2E8F0;
+      animation: eqmSlideIn 0.25s ease both;
+    }
+
+    .eqm-photo-preview {
+      position: relative; margin-top: 10px; width: 140px; height: 140px;
+      border-radius: 10px; overflow: hidden; border: 1px solid #E2E8F0;
+    }
+    .eqm-photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .eqm-photo-remove {
+      position: absolute; top: 6px; right: 6px;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(15, 23, 42, 0.6); color: #FFF; border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 11px;
+    }
+    .eqm-photo-remove:hover { background: rgba(15, 23, 42, 0.8); }
 
     .eqm-actions {
       display: flex; justify-content: flex-end; gap: 12px;
@@ -305,11 +394,23 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
 export class EquipmentFormModalComponent {
   open = signal(false);
 
+  protected readonly typesEquipement = TYPES_EQUIPEMENT;
+  protected readonly etatsEquipement = ETATS_EQUIPEMENT;
+
   nom = '';
+  equipmentIdPreview = '';
   type = '';
-  typeAutre = '';
   protected typeOpen = signal(false);
+  marqueModele = '';
+  numeroSerie = '';
+  site = '';
+  boitierId = '';
   miseEnLigne = '';
+  etat = ETATS_EQUIPEMENT[0];
+  responsable = '';
+  photoDataUrl: string | null = null;
+  perimetreActif = false;
+  perimetreMetres: number | null = null;
   description = '';
 
   protected submitted = signal(false);
@@ -322,6 +423,8 @@ export class EquipmentFormModalComponent {
   /** Ouvre la modale (appelé par le parc d'équipement) */
   show(): void {
     this.reset();
+    this.equipmentIdPreview = this.equipmentService.generateEquipmentId();
+    this.miseEnLigne = this.todayIso();
     this.open.set(true);
   }
 
@@ -330,12 +433,27 @@ export class EquipmentFormModalComponent {
     this.reset();
   }
 
+  private todayIso(): string {
+    const d = new Date();
+    const p = (v: number) => v.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
   private reset(): void {
     this.nom = '';
+    this.equipmentIdPreview = '';
     this.type = '';
-    this.typeAutre = '';
     this.typeOpen.set(false);
+    this.marqueModele = '';
+    this.numeroSerie = '';
+    this.site = '';
+    this.boitierId = '';
     this.miseEnLigne = '';
+    this.etat = ETATS_EQUIPEMENT[0];
+    this.responsable = '';
+    this.photoDataUrl = null;
+    this.perimetreActif = false;
+    this.perimetreMetres = null;
     this.description = '';
     this.submitted.set(false);
     this.isSubmitting.set(false);
@@ -358,14 +476,28 @@ export class EquipmentFormModalComponent {
     this.typeOpen.set(false);
   }
 
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      this.photoDataUrl = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removePhoto(): void {
+    this.photoDataUrl = null;
+  }
+
   onSubmit(): void {
     this.submitted.set(true);
     this.message.set('');
 
     const nom = this.nom.trim();
-    const typeFinal = this.type === 'Autre' ? this.typeAutre.trim() : this.type;
 
-    if (!nom || !this.type || (this.type === 'Autre' && !typeFinal)) {
+    if (!nom || !this.type) {
       this.message.set('Veuillez remplir tous les champs obligatoires.');
       this.messageType.set('error');
       return;
@@ -382,17 +514,24 @@ export class EquipmentFormModalComponent {
         });
 
     const equipment: Equipment = {
-      id: this.equipmentService.generateEquipmentId(),
+      id: this.equipmentIdPreview,
       nom,
-      statut: 'En ligne',
+      statut: this.etat,
       localisation: 'En attente du GPS (IoT)',
       lienLocalisation: 'En attente du GPS (IoT)',
       miseEnLigne,
-      type: typeFinal,
+      type: this.type,
       description: this.description.trim(),
       temperature: null,
       tension: null,
-      bloque: false
+      bloque: false,
+      marqueModele: this.marqueModele.trim() || undefined,
+      numeroSerie: this.numeroSerie.trim() || undefined,
+      site: this.site.trim() || undefined,
+      boitierId: this.boitierId.trim() || undefined,
+      responsable: this.responsable.trim() || undefined,
+      photoDataUrl: this.photoDataUrl || undefined,
+      perimetreMetres: this.perimetreActif && this.perimetreMetres ? this.perimetreMetres : undefined
     };
 
     this.equipmentService.createEquipment(equipment).subscribe((created) => {

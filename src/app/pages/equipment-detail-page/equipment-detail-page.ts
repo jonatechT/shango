@@ -182,6 +182,11 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
         <!-- ===== Carte résumé de l'équipement ===== -->
         <section class="eqd-summary">
           <div class="eqd-summary-main">
+            @if (equipment.photoDataUrl) {
+              <img class="eqd-summary-photo" [src]="equipment.photoDataUrl" alt="Photo de l'équipement" />
+            } @else {
+              <span class="eqd-summary-icon"><i class="fa-solid fa-cube"></i></span>
+            }
             <div class="eqd-summary-info">
               <h2 class="eqd-summary-name">{{ equipmentDisplayName }}</h2>
               <div class="eqd-summary-id">
@@ -200,6 +205,60 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </span>
           </div>
         </section>
+
+        <!-- ===== Informations générales ===== -->
+        @if (hasInfosGenerales) {
+          <section class="eqd-infos-generales">
+            <header class="eqd-bdiag-head">
+              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="eqd-bdiag-head-text">
+                <h3 class="eqd-bdiag-title">Informations générales</h3>
+              </div>
+            </header>
+            <div class="eqd-infos-grid">
+              <div class="eqd-infos-item">
+                <span class="eqd-infos-key">Type / catégorie</span>
+                <span class="eqd-infos-value">{{ equipment.type }}</span>
+              </div>
+              @if (equipment.marqueModele) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Marque / modèle</span>
+                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
+                </div>
+              }
+              @if (equipment.numeroSerie) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Numéro de série</span>
+                  <span class="eqd-infos-value">{{ equipment.numeroSerie }}</span>
+                </div>
+              }
+              @if (equipment.site) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Site / emplacement</span>
+                  <span class="eqd-infos-value">{{ equipment.site }}</span>
+                </div>
+              }
+              @if (equipment.boitierId) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
+                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
+                </div>
+              }
+              @if (equipment.responsable) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Responsable</span>
+                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
+                </div>
+              }
+              @if (equipment.perimetreMetres) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Périmètre autorisé</span>
+                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
         <!-- ===== Grille des indicateurs ===== -->
         <section class="eqd-grid">
@@ -923,6 +982,15 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       flex-shrink: 0;
     }
 
+    .eqd-summary-photo {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      object-fit: cover;
+      flex-shrink: 0;
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
+    }
+
     .eqd-summary-info { min-width: 0; }
 
     .eqd-summary-name {
@@ -1223,7 +1291,8 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
     }
 
     /* ===== Carte diagnostic batterie ===== */
-    .eqd-battery-diag {
+    .eqd-battery-diag,
+    .eqd-infos-generales {
       background: #FFFFFF;
       border: 1px solid rgba(23, 32, 51, 0.06);
       border-radius: 22px;
@@ -1233,6 +1302,15 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       flex-direction: column;
       gap: 22px;
     }
+
+    .eqd-infos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 18px 24px;
+    }
+    .eqd-infos-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .eqd-infos-key { font-size: 11.5px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.4px; }
+    .eqd-infos-value { font-size: 14px; font-weight: 600; color: #172033; word-break: break-word; }
 
     .eqd-bdiag-head {
       display: flex;
@@ -2037,6 +2115,13 @@ export class EquipmentDetailPageComponent implements OnInit {
   /** Nom affiché en en-tête : le suffixe « #XXX » (instance) est retiré, l'ID en dessous suffit à identifier l'équipement précis. */
   get equipmentDisplayName(): string {
     return this.equipment?.nom.replace(/\s*#.*$/, '').trim() || '';
+  }
+
+  /** true si au moins un champ complémentaire (marque, série, site…) est renseigné. */
+  get hasInfosGenerales(): boolean {
+    const e = this.equipment;
+    if (!e) return false;
+    return !!(e.marqueModele || e.numeroSerie || e.site || e.boitierId || e.responsable || e.perimetreMetres);
   }
 
   /* ===== États asynchrones en signals — app zoneless (Angular sans zone.js) :
