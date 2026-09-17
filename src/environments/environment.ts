@@ -11,5 +11,5 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://pure-div-treasurer-casinos.trycloudflare.com/api'
+  apiUrl: 'https://levy-cite-platforms-tropical.trycloudflare.com/api'
 };
