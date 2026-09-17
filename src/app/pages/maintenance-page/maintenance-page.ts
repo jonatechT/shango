@@ -361,7 +361,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
     .numero-code { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #2563EB; text-decoration: none; }
 
     /* Numéro d'intervention (remplace la colonne Statut) */
-    .numero-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; font-weight: 600; color: #475569; }
+    .numero-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 13px; font-weight: 600; color: #475569; letter-spacing: 0.3px; }
 
     /* Ligne verrouillée pour un technicien non assigné : info visible, détail inaccessible */
     .locked-row { cursor: default; }

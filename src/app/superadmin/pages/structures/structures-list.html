@@ -220,12 +220,30 @@
               <div class="sam-field">
                 <label class="sam-label">Téléphone</label>
                 <div class="sam-phone-group">
-                  <select class="sam-input sam-phone-code" [(ngModel)]="form.indicatif" aria-label="Indicatif téléphonique">
-                    @for (ind of indicatifs; track ind.code) {
-                      <option [value]="ind.code">{{ ind.code }} — {{ ind.pays }}</option>
+                  <div class="sam-phone-select">
+                    <button type="button" class="sam-input sam-phone-trigger" (click)="toggleIndicatifMenu('indicatif')">
+                      <span class="fi fi-{{ getIndicatif(form.indicatif).iso }} sam-phone-flag"></span>
+                      <span class="sam-phone-trigger-code">{{ form.indicatif }}</span>
+                      <i class="fa-solid fa-chevron-down sam-phone-chevron"></i>
+                    </button>
+                    @if (indicatifMenuOpen()) {
+                      <div class="sam-phone-backdrop" (click)="closeIndicatifMenus()"></div>
+                      <div class="sam-phone-menu">
+                        @for (ind of indicatifs; track ind.code) {
+                          <button type="button" class="sam-phone-option" [class.active]="ind.code === form.indicatif"
+                                  (click)="selectIndicatif('indicatif', ind.code)">
+                            <span class="fi fi-{{ ind.iso }} sam-phone-flag"></span>
+                            <span class="sam-phone-option-code">{{ ind.code }}</span>
+                            <span class="sam-phone-option-pays">{{ ind.pays }}</span>
+                          </button>
+                        }
+                      </div>
                     }
-                  </select>
-                  <input type="tel" class="sam-input sam-phone-number" [(ngModel)]="form.telephone" placeholder="XX XX XX XX" />
+                  </div>
+                  <input type="tel" class="sam-input sam-phone-number" [ngModel]="form.telephone"
+                         (ngModelChange)="setPhone('telephone', 'indicatif', $event)"
+                         [maxlength]="getPhoneLength(form.indicatif)"
+                         [placeholder]="phonePlaceholder(form.indicatif)" />
                 </div>
               </div>
             </div>
@@ -285,16 +303,34 @@
               <div class="sam-field">
                 <label class="sam-label">Téléphone</label>
                 <div class="sam-phone-group">
-                  <select class="sam-input sam-phone-code" [(ngModel)]="form.adminIndicatif" aria-label="Indicatif téléphonique">
-                    @for (ind of indicatifs; track ind.code) {
-                      <option [value]="ind.code">{{ ind.code }} — {{ ind.pays }}</option>
+                  <div class="sam-phone-select">
+                    <button type="button" class="sam-input sam-phone-trigger" (click)="toggleIndicatifMenu('adminIndicatif')">
+                      <span class="fi fi-{{ getIndicatif(form.adminIndicatif).iso }} sam-phone-flag"></span>
+                      <span class="sam-phone-trigger-code">{{ form.adminIndicatif }}</span>
+                      <i class="fa-solid fa-chevron-down sam-phone-chevron"></i>
+                    </button>
+                    @if (adminIndicatifMenuOpen()) {
+                      <div class="sam-phone-backdrop" (click)="closeIndicatifMenus()"></div>
+                      <div class="sam-phone-menu">
+                        @for (ind of indicatifs; track ind.code) {
+                          <button type="button" class="sam-phone-option" [class.active]="ind.code === form.adminIndicatif"
+                                  (click)="selectIndicatif('adminIndicatif', ind.code)">
+                            <span class="fi fi-{{ ind.iso }} sam-phone-flag"></span>
+                            <span class="sam-phone-option-code">{{ ind.code }}</span>
+                            <span class="sam-phone-option-pays">{{ ind.pays }}</span>
+                          </button>
+                        }
+                      </div>
                     }
-                  </select>
-                  <input type="tel" class="sam-input sam-phone-number" [(ngModel)]="form.adminTelephone" placeholder="XX XX XX XX" />
+                  </div>
+                  <input type="tel" class="sam-input sam-phone-number" [ngModel]="form.adminTelephone"
+                         (ngModelChange)="setPhone('adminTelephone', 'adminIndicatif', $event)"
+                         [maxlength]="getPhoneLength(form.adminIndicatif)"
+                         [placeholder]="phonePlaceholder(form.adminIndicatif)" />
                 </div>
               </div>
               <div class="sam-field">
-                <label class="sam-label">Mot de passe temporaire <span class="sam-required">*</span></label>
+                <label class="sam-label">Mot de passe <span class="sam-required">*</span></label>
                 <input type="text" class="sam-input" [(ngModel)]="form.adminMotDePasse" placeholder="8 caractères minimum" />
               </div>
             </div>

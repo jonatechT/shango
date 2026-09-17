@@ -225,22 +225,25 @@ export class UsersListComponent {
       this.messageType.set('error');
       return;
     }
-    const newUser: User = {
-      id: Date.now(),
+    this.usersService.createUser({
       name: fullName,
       email: this.formData.email.toLowerCase(),
       role: 'USER',
       structureId,
       statut: this.formData.statut,
       telephone: this.formData.telephone || undefined,
-      dateCreation: new Date().toISOString(),
       motDePasse: this.formData.motDePasse
-    };
-    this.usersService.createUser(newUser);
-    this.message.set(`Le technicien « ${fullName} » a été créé avec succès.`);
-    this.messageType.set('success');
-    this.closeAddModal();
-    setTimeout(() => this.message.set(''), 4000);
+    }).subscribe(created => {
+      if (created) {
+        this.message.set(`Le technicien « ${fullName} » a été créé avec succès.`);
+        this.messageType.set('success');
+        this.closeAddModal();
+      } else {
+        this.message.set(this.usersService.createError() || "Impossible de créer le technicien.");
+        this.messageType.set('error');
+      }
+      setTimeout(() => this.message.set(''), 4000);
+    });
   }
 
   protected confirmToggleStatus(user: User): void {
@@ -267,13 +270,17 @@ export class UsersListComponent {
   protected confirmToggle(): void {
     const u = this.selectedUser();
     if (!u) return;
-    const updated = this.usersService.toggleStatus(u.id);
-    if (updated) {
-      const action = updated.statut === 'ACTIVE' ? 'activé' : 'désactivé';
-this.message.set(`Le technicien « ${updated.name} » a été ${action} avec succès.`);
-      this.messageType.set('success');
+    this.usersService.toggleStatus(u.id).subscribe(updated => {
+      if (updated) {
+        const action = updated.statut === 'ACTIVE' ? 'activé' : 'désactivé';
+        this.message.set(`Le technicien « ${updated.name} » a été ${action} avec succès.`);
+        this.messageType.set('success');
+      } else {
+        this.message.set(this.usersService.error() || 'Une erreur est survenue.');
+        this.messageType.set('error');
+      }
       setTimeout(() => this.message.set(''), 4000);
-    }
+    });
     this.cancelModal();
   }
 

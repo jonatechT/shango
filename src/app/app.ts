@@ -8,7 +8,7 @@ import { AuthService } from './auth/auth.service';
 import { User } from './auth/auth.service';
 import { StructureService } from './superadmin/services/structure.service';
 import { MaintenanceService, NotificationItem, MaintenanceItem } from './services/maintenance.service';
-import { EquipmentService } from './services/equipment.service';
+import { EquipmentService, Equipment } from './services/equipment.service';
 import { ThemeService } from './services/theme.service';
 
 interface MenuItem {
@@ -35,6 +35,8 @@ export class App {
   showProfile = false;
   showNotifications = false;
   showAlertsPanel = false;
+  searchQuery = '';
+  showSearchResults = false;
 
   /** Mode nuit activé ? (état partagé via ThemeService, aussi utilisé par l'espace SuperAdmin) */
   protected get isDarkMode(): boolean {
@@ -266,6 +268,42 @@ export class App {
 
   protected closeNotifications(): void {
     this.showNotifications = false;
+  }
+
+  /** Résultats de recherche (équipements) — nom, ID, client ou boîtier IoT. */
+  protected get searchResults(): Equipment[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return this.equipmentService
+      .getAll()
+      .filter(e =>
+        e.nom.toLowerCase().includes(q) ||
+        e.id.toLowerCase().includes(q) ||
+        (e.clientNom ?? '').toLowerCase().includes(q) ||
+        (e.boitierId ?? '').toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }
+
+  protected onSearchInput(value: string): void {
+    this.searchQuery = value;
+    this.showSearchResults = value.trim().length > 0;
+  }
+
+  /** Entrée directe dans le champ : ouvre le premier résultat s'il y en a un. */
+  protected onSearchSubmit(): void {
+    const first = this.searchResults[0];
+    if (first) this.openSearchResult(first.id);
+  }
+
+  protected openSearchResult(id: string): void {
+    this.closeSearch();
+    this.navigateTo(`/equipements/${id}`);
+  }
+
+  protected closeSearch(): void {
+    this.showSearchResults = false;
+    this.searchQuery = '';
   }
 
   /**

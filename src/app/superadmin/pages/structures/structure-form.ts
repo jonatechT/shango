@@ -3,8 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { Structure, StructureStatus } from '../../models/structure.model';
 import { StructureService } from '../../services/structure.service';
-import { AuthService, User } from '../../../auth/auth.service';
-import { UsersService } from '../../../services/users.service';
 
 @Component({
   selector: 'app-structure-form',
@@ -386,8 +384,6 @@ export class StructureFormComponent implements OnInit {
 
   constructor(
     private structureService: StructureService,
-    private authService: AuthService,
-    private usersService: UsersService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -474,112 +470,50 @@ export class StructureFormComponent implements OnInit {
       }
     }
 
-    setTimeout(() => {
-      if (this.isEditMode) {
-        const updated = this.structureService.updateStructure(this.structureId, {
-          nom: this.formData.nom,
-          code: this.formData.code,
-          description: this.formData.description,
-          email: this.formData.email,
-          telephone: this.formData.telephone,
-          adresse: this.formData.adresse,
-          ville: this.formData.ville,
-          pays: this.formData.pays,
-          statut: this.formData.statut,
-          adminNom: this.formData.adminNom.trim() || undefined,
-          adminEmail: this.formData.adminEmail.trim().toLowerCase() || undefined,
-          adminTelephone: this.formData.adminTelephone.trim() || undefined
-        });
+    const common = {
+      nom: this.formData.nom,
+      code: this.formData.code,
+      description: this.formData.description,
+      email: this.formData.email,
+      telephone: this.formData.telephone,
+      adresse: this.formData.adresse,
+      ville: this.formData.ville,
+      pays: this.formData.pays,
+      statut: this.formData.statut,
+      adminNom: this.formData.adminNom.trim() || undefined,
+      adminEmail: this.formData.adminEmail.trim().toLowerCase() || undefined,
+      adminTelephone: this.formData.adminTelephone.trim() || undefined,
+      adminMotDePasse: this.formData.adminMotDePasse.trim() || undefined
+    };
+
+    if (this.isEditMode) {
+      this.structureService.updateStructure(this.structureId, common).subscribe(updated => {
+        this.isSaving.set(false);
         if (updated) {
-          this.syncAdminAccount(updated.id);
-          this.message.set(`La structure « ${updated.nom} » a été modifiée avec succès.`);
-          this.messageType.set('success');
+          this.message.set(this.structureService.error() || `La structure « ${updated.nom} » a été modifiée avec succès.`);
+          this.messageType.set(this.structureService.error() ? 'error' : 'success');
           setTimeout(() => {
             this.router.navigate(['/superadmin/structures', this.structureId]);
           }, 1500);
         } else {
-          this.message.set('Une erreur est survenue lors de la modification.');
+          this.message.set(this.structureService.error() || 'Une erreur est survenue lors de la modification.');
           this.messageType.set('error');
         }
-      } else {
-        const created = this.structureService.createStructure({
-          nom: this.formData.nom,
-          code: this.formData.code,
-          description: this.formData.description,
-          email: this.formData.email,
-          telephone: this.formData.telephone,
-          adresse: this.formData.adresse,
-          ville: this.formData.ville,
-          pays: this.formData.pays,
-          statut: this.formData.statut,
-          adminNom: this.formData.adminNom.trim(),
-          adminEmail: this.formData.adminEmail.trim().toLowerCase(),
-          adminTelephone: this.formData.adminTelephone.trim() || undefined
-        });
-
-        const adminUser: User = {
-          id: Date.now(),
-          name: this.formData.adminNom.trim(),
-          email: this.formData.adminEmail.trim().toLowerCase(),
-          role: 'ADMIN_STRUCTURE',
-          structureId: created.id,
-          statut: 'ACTIVE',
-          telephone: this.formData.adminTelephone.trim() || undefined,
-          dateCreation: new Date().toISOString(),
-          motDePasse: this.formData.adminMotDePasse.trim()
-        };
-        this.authService.registerUser(adminUser);
-
-        this.message.set(`La structure « ${created.nom} » a été créée avec succès.`);
-        this.messageType.set('success');
-        setTimeout(() => {
-          this.router.navigate(['/superadmin/structures']);
-        }, 1500);
-      }
-      this.isSaving.set(false);
-    }, 500);
-  }
-
-  /**
-   * Synchronise le compte de l'administrateur de structure après édition :
-   * retrouve le compte existant via son email D'AVANT modification (au cas où
-   * l'email aurait changé) et met à jour ses infos ; le mot de passe n'est
-   * modifié que si un nouveau a été saisi (vide = conserver l'actuel). Si
-   * aucun admin n'existait encore et que les 3 champs sont renseignés, un
-   * nouveau compte est créé.
-   */
-  private syncAdminAccount(structureId: string): void {
-    const nom = this.formData.adminNom.trim();
-    const email = this.formData.adminEmail.trim().toLowerCase();
-    const telephone = this.formData.adminTelephone.trim();
-    const motDePasse = this.formData.adminMotDePasse.trim();
-    if (!nom && !email) return;
-
-    const existing = this.originalAdminEmail
-      ? this.usersService.getAllUsers().find(
-          u => u.role === 'ADMIN_STRUCTURE' && u.email.toLowerCase() === this.originalAdminEmail.toLowerCase()
-        )
-      : undefined;
-
-    if (existing) {
-      this.usersService.updateUser(existing.id, {
-        name: nom || existing.name,
-        email: email || existing.email,
-        telephone: telephone || existing.telephone,
-        ...(motDePasse ? { motDePasse } : {})
       });
-      this.originalAdminEmail = email || existing.email;
-    } else if (nom && email && motDePasse) {
-      this.usersService.createUser({
-        name: nom,
-        email,
-        role: 'ADMIN_STRUCTURE',
-        structureId,
-        statut: 'ACTIVE',
-        telephone: telephone || undefined,
-        motDePasse
+    } else {
+      this.structureService.createStructure(common).subscribe(created => {
+        this.isSaving.set(false);
+        if (created) {
+          this.message.set(this.structureService.error() || `La structure « ${created.nom} » a été créée avec succès.`);
+          this.messageType.set(this.structureService.error() ? 'error' : 'success');
+          setTimeout(() => {
+            this.router.navigate(['/superadmin/structures']);
+          }, 1500);
+        } else {
+          this.message.set(this.structureService.error() || "Une erreur est survenue lors de la création.");
+          this.messageType.set('error');
+        }
       });
-      this.originalAdminEmail = email;
     }
   }
 

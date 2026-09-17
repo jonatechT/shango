@@ -1,9 +1,11 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { EQUIPMENT_API_CONFIG } from '../config/equipment-api.config';
 import { mockBatteryCurrentDiagnostic, mockBatteryHistory, mockLocationHistory } from './equipment-mock-data';
+import { AuthService } from '../auth/auth.service';
+import { environment } from '../../environments/environment';
 
 /**
  * Modèle d'un équipement du parc.
@@ -34,7 +36,7 @@ export interface Equipment {
    * Aucune valeur fictive n'est introduite côté frontend.
    */
   bloque?: boolean;
-  /** Marque / modèle du matériel (ex. « Victron MultiPlus-II »). */
+  /** Marque / modèle du matériel (ex. « Alioth »). */
   marqueModele?: string;
   /** Nom du client auquel l'équipement est attribué. */
   clientNom?: string;
@@ -50,6 +52,13 @@ export interface Equipment {
   photoDataUrl?: string;
   /** Rayon autorisé (mètres) autour de la position d'installation avant alerte de déplacement. */
   perimetreMetres?: number;
+  /**
+   * Clé primaire backend (`equipements.id`), distincte de `id` (le code
+   * métier "SH-014" utilisé côté frontend comme `reference`). Nécessaire
+   * pour cibler `PUT/PATCH /api/equipements/{backendId}`. Absente pour un
+   * équipement jamais synchronisé avec le backend.
+   */
+  backendId?: number;
 }
 
 export interface EquipmentDiagnostic {
@@ -140,17 +149,18 @@ export class EquipmentService {
    */
   readonly locationHistoryError = signal<string | null>(null);
 
+  private authService = inject(AuthService);
+
   constructor(private http: HttpClient) {}
 
   private readonly STORAGE_KEY = 'shango_equipments';
 
-  /** Données identiques à celles affichées jusqu'ici dans le tableau du parc */
-  private readonly defaultEquipments: Equipment[] = [
-     { id: 'SH-001', nom: 'Kit solaire #SK-045', statut: 'En alerte', localisation: '12.3685°N, -1.5250°E', lienLocalisation: '12.3685,-1.5250', miseEnLigne: '14 mars 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: 'SH-002', nom: 'Kit solaire #SK-067', statut: 'En alerte', localisation: '11.1784°N, -4.2979°E', lienLocalisation: '11.1784,-4.2979', miseEnLigne: '22 janvier 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: 'SH-003', nom: 'Kit solaire #SK-089', statut: 'Inspection', localisation: '12.2513°N, -2.3510°E', lienLocalisation: '12.2513,-2.3510', miseEnLigne: '5 juin 2024', type: 'Kit solaire', temperature: null, tension: null },
-     { id: 'SH-004', nom: 'Kit solaire #SK-102', statut: 'Inspection', localisation: '12.3714°N, -1.5197°E', lienLocalisation: '12.3714,-1.5197', miseEnLigne: '18 septembre 2023', type: 'Kit solaire', temperature: null, tension: null },
-  ];
+  /**
+   * Parc vide par défaut : la vraie liste vient désormais du backend
+   * (`load()` → GET /api/equipements). Ce tableau ne sert plus que de filet
+   * de sécurité (SSR, backend injoignable au tout premier chargement).
+   */
+  private readonly defaultEquipments: Equipment[] = [];
 
   /**
    * Liste du parc, persistée en localStorage (comme les autres registres
@@ -165,12 +175,31 @@ export class EquipmentService {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Equipment[];
-        if (Array.isArray(parsed) && parsed.length > 0) return this.migrateLegacyIds(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return this.migrateLegacyIds(parsed).map(e => this.ensureDisplayName(e));
+        }
       }
     } catch {
       /* données corrompues → valeurs par défaut */
     }
     return [...this.defaultEquipments];
+  }
+
+  /**
+   * Garantit qu'un équipement a toujours un `nom` d'affichage non vide.
+   *
+   * `nom` n'est pas encore persisté côté backend (voir
+   * SHANGO/FRONTEND_INTEGRATION_GAPS.md §1) : un équipement créé sur un autre
+   * poste, ou rechargé un jour depuis une future liste backend, pourrait
+   * arriver sans `nom`. Sans ce filet, la colonne « Équipement » du tableau
+   * du parc — et le rapprochement par nom utilisé par les pages
+   * Alertes/Maintenance — se retrouveraient vides plutôt que de recourir à
+   * une identification fiable (`type` + `reference`, toujours fournis par
+   * le backend).
+   */
+  private ensureDisplayName(e: Equipment): Equipment {
+    if (e.nom && e.nom.trim()) return e;
+    return { ...e, nom: `${e.type} ${e.id}` };
   }
 
   /** Un ID au format court courant, ex. "SH-014". */
@@ -217,6 +246,90 @@ export class EquipmentService {
     }
   }
 
+  /** Message d'erreur du dernier chargement de la liste (null si succès ou pas encore appelé). */
+  readonly loadError = signal<string | null>(null);
+  readonly loading = signal(false);
+
+  /**
+   * Charge la liste réelle des équipements — GET /api/equipements.
+   *
+   * Remplace le cache local par la liste backend en cas de succès (partagée
+   * entre tous les postes désormais, puisque la création persiste pour de
+   * vrai). En cas d'échec (backend indisponible...), le cache local existant
+   * est conservé tel quel — `loadError` expose le message.
+   *
+   * Les champs non encore persistés côté backend (nom, description, infos
+   * client, marque, site, photo, périmètre — voir
+   * SHANGO/FRONTEND_INTEGRATION_GAPS.md §1) sont récupérés depuis le cache
+   * local existant quand l'équipement y est déjà connu (créé depuis ce
+   * poste), sinon ils restent vides et `ensureDisplayName` prend le relais
+   * pour l'affichage.
+   */
+  load(): Observable<Equipment[]> {
+    this.loading.set(true);
+    this.loadError.set(null);
+    return this.http.get<{ data: any[] }>(`${environment.apiUrl}/equipements`).pipe(
+      map(res => res.data.map((raw: any) => this.mapBackendEquipment(raw))),
+      map(list => {
+        this.equipments = list;
+        this.saveEquipments();
+        this.loading.set(false);
+        return list;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.loading.set(false);
+        this.loadError.set(
+          error.status === 0
+            ? 'Backend indisponible : impossible de charger le parc réel (liste locale affichée).'
+            : `Erreur ${error.status} lors du chargement du parc.`
+        );
+        return of(this.equipments);
+      })
+    );
+  }
+
+  /** Traduit le statut backend (`Equipement.status`) vers le libellé humain utilisé côté UI. */
+  private mapBackendEquipmentStatus(status: string, etatKit: string | null | undefined): string {
+    if (etatKit === 'BLOQUE') return 'Bloqué';
+    switch (status) {
+      case 'en_panne': return 'En alerte';
+      case 'maintenance': return 'Inspection';
+      case 'hors_service': return 'Hors service';
+      default: return 'En ligne';
+    }
+  }
+
+  private mapBackendEquipment(raw: any): Equipment {
+    const existing = this.equipments.find(e => e.id === raw.reference);
+    const miseEnLigne = existing?.miseEnLigne
+      || (raw.created_at
+        ? new Date(raw.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '');
+
+    return this.ensureDisplayName({
+      id: raw.reference,
+      backendId: raw.id,
+      nom: raw.nom || existing?.nom || '',
+      statut: this.mapBackendEquipmentStatus(raw.status, raw.etat_kit),
+      localisation: existing?.localisation || 'En attente du GPS (IoT)',
+      lienLocalisation: existing?.lienLocalisation || '',
+      miseEnLigne,
+      type: raw.type,
+      description: raw.description ?? existing?.description,
+      temperature: null,
+      tension: null,
+      bloque: raw.etat_kit === 'BLOQUE',
+      marqueModele: raw.marque_modele ?? existing?.marqueModele,
+      clientNom: raw.client_nom ?? existing?.clientNom,
+      clientNumero: raw.client_numero ?? existing?.clientNumero,
+      site: raw.site ?? existing?.site,
+      boitierId: raw.device_id,
+      responsable: existing?.responsable,
+      photoDataUrl: this.buildPhotoUrl(raw.photo) ?? existing?.photoDataUrl,
+      perimetreMetres: raw.perimetre_metres != null ? Number(raw.perimetre_metres) : existing?.perimetreMetres
+    });
+  }
+
   getAll(): Equipment[] {
     return this.equipments;
   }
@@ -230,17 +343,31 @@ export class EquipmentService {
     return this.nextCleanId();
   }
 
-  /** Prochain identifiant de boîtier IoT SHANGO disponible, format "BOX-001" (jamais réutilisé). */
+  /** Prochain identifiant de boîtier IoT SHANGO disponible, format "SH-001" (jamais réutilisé). */
   generateBoitierId(): string {
     const used = new Set(
       this.equipments
-        .map(e => /^BOX-(\d+)$/i.exec(e.boitierId ?? '')?.[1])
+        .map(e => /^SH-(\d+)$/i.exec(e.boitierId ?? '')?.[1])
         .filter((n): n is string => !!n)
         .map(Number)
     );
     let next = 1;
     while (used.has(next)) next++;
-    return 'BOX-' + next.toString().padStart(3, '0');
+    return 'SH-' + next.toString().padStart(3, '0');
+  }
+
+  /**
+   * Prochain numéro d'affichage disponible pour le parc, format "#SK-20"
+   * (jamais réutilisé, incrémental sur l'ensemble du parc). Utilisé dans le
+   * nom de l'équipement (ex. "Kit solaire #SK-20"), distinct de son ID
+   * métier (SH-xxx) et de l'ID du boîtier.
+   */
+  generateDisplayNumber(): number {
+    const used = this.equipments
+      .map(e => /#SK-(\d+)/i.exec(e.nom)?.[1])
+      .filter((n): n is string => !!n)
+      .map(Number);
+    return used.length > 0 ? Math.max(...used) + 1 : 1;
   }
 
   /**
@@ -285,46 +412,87 @@ export class EquipmentService {
   readonly equipmentCreateError = signal<string | null>(null);
 
   /**
-   * Enregistre un nouvel équipement.
+   * Enregistre un nouvel équipement — POST /api/equipements (backend réel,
+   * indépendant de EQUIPMENT_API_CONFIG.useMock : la création est branchée
+   * en dur sur l'API depuis l'intégration du 2026-09-17).
    *
-   * Endpoint backend attendu — convention REST (cf. PATCH /api/equipements/{id}/status
-   * et le contrat API) :
+   * Mapping vers le schéma backend (`Equipement`) :
+   *   - organization_id : structure de l'utilisateur connecté (le backend
+   *     l'exige actuellement au lieu de le déduire lui-même du token — voir
+   *     SHANGO/FRONTEND_INTEGRATION_GAPS.md §1).
+   *   - reference : `data.id` (code métier généré, ex. "SH-014").
+   *   - device_id : `data.boitierId` (ID du boîtier SHANGO — confirmé être le
+   *     vrai identifiant que le boîtier physique utilisera pour ses envois).
+   *   - status : "actif" par défaut ; l'état réel viendra de la télémétrie IoT.
    *
-   *   POST /api/equipements
-   *   Body : l'objet équipement { id, nom, type, statut, localisation, lienLocalisation, miseEnLigne, ... }
-   *   Rôle : ADMIN_STRUCTURE (équipements de sa structure) / SUPERADMIN
-   *   Réponses : 201 (créé) / 409 (ID déjà existant)
+   * Depuis l'ajout de la migration `add_frontend_fields_to_equipements_table`
+   * (2026-09-17), `nom`/`description`/`client_nom`/`client_numero`/
+   * `marque_modele`/`site`/`perimetre_metres` sont aussi envoyés et
+   * persistent réellement.
    *
-   * En mode développeur (EQUIPMENT_API_CONFIG.useMock), l'ajout est enregistré
-   * localement pour pouvoir tester le parc sans backend.
-   *
-   * En mode réel, l'équipement n'est ajouté à la liste locale QUE si le backend
-   * confirme la création (aucun faux succès). Les erreurs sont exposées via
-   * `equipmentCreateError`.
+   * Photo (2026-09-17, suite) : le backend valide maintenant `photo` comme
+   * une vraie image uploadée (`image|mimes:jpg,jpeg,png,webp|max:5120`,
+   * stockée via `Storage::disk('public')`) — plus une simple chaîne. Quand
+   * un fichier est fourni, la requête part en `multipart/form-data`
+   * (FormData) au lieu de JSON ; sinon elle reste en JSON comme avant.
    */
-  createEquipment(data: Equipment): Observable<Equipment | null> {
-    if (EQUIPMENT_API_CONFIG.useMock) {
-      this.equipmentCreateError.set(null);
-      const created: Equipment = {
-        ...data,
-        temperature: null,
-        tension: null,
-        bloque: false
-      };
-      this.equipments.push(created);
-      this.saveEquipments();
-      return of(created);
+  createEquipment(data: Equipment, photoFile?: File | null): Observable<Equipment | null> {
+    this.equipmentCreateError.set(null);
+
+    const organizationId = this.authService.structureId;
+    if (!organizationId) {
+      this.equipmentCreateError.set('Impossible de déterminer votre structure. Reconnectez-vous et réessayez.');
+      return of(null);
     }
 
-    this.equipmentCreateError.set(null);
-    return this.http.post<Equipment>('/api/equipements', data).pipe(
-      map(created => {
-        this.equipments.push({
-          ...created,
-          temperature: created.temperature ?? null,
-          tension: created.tension ?? null,
-          bloque: created.bloque ?? false
+    const fields: Record<string, string | number | undefined> = {
+      organization_id: Number(organizationId),
+      type: data.type,
+      reference: data.id,
+      device_id: data.boitierId,
+      status: 'actif',
+      nom: data.nom || undefined,
+      description: data.description || undefined,
+      client_nom: data.clientNom || undefined,
+      client_numero: data.clientNumero || undefined,
+      marque_modele: data.marqueModele || undefined,
+      site: data.site || undefined,
+      perimetre_metres: data.perimetreMetres ?? undefined
+    };
+
+    let body: FormData | Record<string, string | number | undefined>;
+    if (photoFile) {
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined) formData.append(key, String(value));
+      }
+      formData.append('photo', photoFile, photoFile.name);
+      body = formData;
+    } else {
+      body = fields;
+    }
+
+    return this.http.post<{ data: any }>(`${environment.apiUrl}/equipements`, body).pipe(
+      map(res => {
+        const backendEquipement = res.data;
+        const created = this.ensureDisplayName({
+          ...data,
+          id: backendEquipement.reference,
+          backendId: backendEquipement.id,
+          boitierId: backendEquipement.device_id,
+          bloque: backendEquipement.etat_kit === 'BLOQUE',
+          nom: backendEquipement.nom || data.nom,
+          description: backendEquipement.description ?? data.description,
+          clientNom: backendEquipement.client_nom ?? data.clientNom,
+          clientNumero: backendEquipement.client_numero ?? data.clientNumero,
+          marqueModele: backendEquipement.marque_modele ?? data.marqueModele,
+          site: backendEquipement.site ?? data.site,
+          perimetreMetres: backendEquipement.perimetre_metres != null ? Number(backendEquipement.perimetre_metres) : data.perimetreMetres,
+          photoDataUrl: this.buildPhotoUrl(backendEquipement.photo) ?? data.photoDataUrl,
+          temperature: null,
+          tension: null
         });
+        this.equipments.push(created);
         this.saveEquipments();
         return created;
       }),
@@ -335,12 +503,26 @@ export class EquipmentService {
     );
   }
 
+  /**
+   * Construit l'URL publique d'une photo stockée côté backend (disque
+   * `public`, servi via le lien symbolique `public/storage`) à partir du
+   * chemin relatif renvoyé par l'API (ex. "equipements/abc123.jpg").
+   */
+  private buildPhotoUrl(relativePath: string | null | undefined): string | undefined {
+    if (!relativePath) return undefined;
+    // apiUrl vaut '/api' en dev (proxy) ou une URL absolue en prod ('https://.../api').
+    const base = environment.apiUrl.replace(/\/api\/?$/, '');
+    return `${base}/storage/${relativePath}`;
+  }
+
   private buildCreateErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0) {
       return "Backend indisponible : impossible d'enregistrer l'équipement.";
     }
-    if (error.status === 409) {
-      return 'Un équipement avec cet ID existe déjà.';
+    if (error.status === 409 || error.status === 422) {
+      const errors = error.error?.errors as Record<string, string[]> | undefined;
+      const firstFieldError = errors ? Object.values(errors)[0]?.[0] : undefined;
+      return firstFieldError || 'Un équipement avec cet ID (référence ou boîtier) existe déjà.';
     }
     if (error.status === 401 || error.status === 403) {
       return "Vous n'avez pas les droits nécessaires pour ajouter un équipement.";
@@ -352,30 +534,25 @@ export class EquipmentService {
   }
 
   /**
-   * Bloque ou débloque un équipement.
-   *
-   * Endpoint backend attendu — convention projet (cf. BACKEND_API_CONTRACT.md :
-   * PATCH /api/users/:id/status et PATCH /api/structures/:id/status) :
-   *
-   *   PATCH /api/equipements/{id}/status
-   *   Body : { "statut": "BLOQUE" | "ACTIF" }
-   *   Rôle : ADMIN_STRUCTURE (équipements de sa structure) / SUPERADMIN
-   *
-   * Tant que l'endpoint n'existe pas côté backend, l'appel échoue et
-   * `equipmentStatusError` expose un message clair ; l'état local n'est
-   * PAS modifié (aucun faux succès).
+   * Bloque ou débloque un équipement — PUT /api/equipements/{backendId}
+   * avec `{ "etat_kit": "BLOQUE" | "MARCHE" }` (champ déjà présent côté
+   * backend, pas de route dédiée nécessaire — voir
+   * SHANGO/FRONTEND_INTEGRATION_GAPS.md §3).
    */
   setEquipmentStatus(id: string, bloque: boolean): Observable<Equipment | null> {
     this.equipmentStatusError.set(null);
 
-    if (EQUIPMENT_API_CONFIG.useMock) {
-      this.applyLocalStatus(id, bloque);
-      return of(this.getById(id) ?? null);
+    const equipment = this.getById(id);
+    if (!equipment?.backendId) {
+      this.equipmentStatusError.set(
+        "Cet équipement n'a pas encore été synchronisé avec le backend : rechargez la page (parc réel) avant de réessayer."
+      );
+      return of(null);
     }
 
-    const body = { statut: bloque ? 'BLOQUE' : 'ACTIF' };
+    const body = { etat_kit: bloque ? 'BLOQUE' : 'MARCHE' };
     return this.http
-      .patch<Equipment>(`/api/equipements/${encodeURIComponent(id)}/status`, body)
+      .put<{ data: any }>(`${environment.apiUrl}/equipements/${equipment.backendId}`, body)
       .pipe(
         map(() => {
           this.applyLocalStatus(id, bloque);
@@ -402,7 +579,7 @@ export class EquipmentService {
       return "Backend indisponible : impossible de changer l'état de l'équipement.";
     }
     if (error.status === 404) {
-      return 'Endpoint de blocage non disponible côté backend (PATCH /api/equipements/{id}/status).';
+      return 'Équipement introuvable côté backend (rechargez la page).';
     }
     if (error.status === 401 || error.status === 403) {
       return "Vous n'avez pas les droits nécessaires pour bloquer/débloquer cet équipement.";
@@ -424,46 +601,74 @@ export class EquipmentService {
   }
 
   /**
-   * Diagnostic batterie courant — GET /api/batterie/{device_id}/actuel.
-   *
-   * Renvoie null si aucune donnée (404 / données absentes) ou en cas d'erreur
-   * API / backend indisponible (le détail est alors exposé via `batteryApiError`).
+   * Récupère l'historique brut (non mappé) depuis le seul endpoint batterie
+   * qui existe réellement côté backend — GET /api/batteries/{device_id}/diagnostics
+   * (trié du plus récent au plus ancien). `getBatteryCurrentDiagnostic` et
+   * `getBatteryHistory` partagent cette même source : il n'y a pas
+   * d'endpoint dédié "diagnostic actuel" côté backend (voir
+   * SHANGO/FRONTEND_INTEGRATION_GAPS.md §2), donc le "diagnostic actuel" est
+   * simplement le premier élément de cet historique.
    */
-  getBatteryCurrentDiagnostic(deviceId: string): Observable<BatteryCurrentDiagnostic | null> {
-    if (EQUIPMENT_API_CONFIG.useMock) {
-      return of(mockBatteryCurrentDiagnostic(deviceId));
-    }
+  private fetchBatteryHistoryRaw(deviceId: string): Observable<any[]> {
     this.batteryApiError.set(null);
     return this.http
-      .get<BatteryCurrentDiagnostic>(`${EQUIPMENT_API_CONFIG.batteryBaseUrl}/${encodeURIComponent(deviceId)}/actuel`)
+      .get<{ historique: any[] }>(`${environment.apiUrl}/batteries/${encodeURIComponent(deviceId)}/diagnostics`)
       .pipe(
+        map(res => (Array.isArray(res.historique) ? res.historique : [])),
         catchError((error: HttpErrorResponse) => {
           this.handleBatteryError(error);
-          return of(null);
+          return of<any[]>([]);
         })
       );
   }
 
   /**
-   * Historique batterie — GET /api/batterie/{device_id}/historique.
-   *
-   * Renvoie [] si aucune donnée (404) ou en cas d'erreur API / backend
-   * indisponible (le détail est alors exposé via `batteryApiError`).
+   * Diagnostic batterie courant, dérivé du dernier point de l'historique réel
+   * (voir `fetchBatteryHistoryRaw`). `humidite_pourcent`, `statut_paiement`
+   * et `message` restent `null` : pas encore fournis par le backend
+   * (§2 du rapport d'écarts).
    */
+  getBatteryCurrentDiagnostic(deviceId: string): Observable<BatteryCurrentDiagnostic | null> {
+    if (EQUIPMENT_API_CONFIG.useMock) {
+      return of(mockBatteryCurrentDiagnostic(deviceId));
+    }
+    return this.fetchBatteryHistoryRaw(deviceId).pipe(
+      map((list): BatteryCurrentDiagnostic | null => {
+        const latest = list[0];
+        if (!latest) return null;
+        return {
+          device_id: latest.device_id,
+          date_heure: latest.date_heure,
+          voltage_v: latest.voltage_v ?? null,
+          current_a: latest.current_a ?? null,
+          temperature_c: latest.temperature_c ?? null,
+          dod_percent: latest.dod_percent ?? null,
+          humidite_pourcent: null,
+          statut_paiement: null,
+          soh_pourcent: latest.soh_pourcent ?? null,
+          capacite_restante_ah: latest.capacite_ah ?? null,
+          duree_estimee_jours: latest.rul_jours ?? null,
+          etat: latest.etat ?? null,
+          message: null
+        };
+      })
+    );
+  }
+
+  /** Historique batterie — dérivé de `fetchBatteryHistoryRaw` (voir ce commentaire). */
   getBatteryHistory(deviceId: string): Observable<BatteryHistoryEntry[]> {
     if (EQUIPMENT_API_CONFIG.useMock) {
       return of(mockBatteryHistory(deviceId));
     }
-    this.batteryApiError.set(null);
-    return this.http
-      .get<BatteryHistoryEntry[]>(`${EQUIPMENT_API_CONFIG.batteryBaseUrl}/${encodeURIComponent(deviceId)}/historique`)
-      .pipe(
-        map(list => (Array.isArray(list) ? list : [])),
-        catchError((error: HttpErrorResponse) => {
-          this.handleBatteryError(error);
-          return of([]);
-        })
-      );
+    return this.fetchBatteryHistoryRaw(deviceId).pipe(
+      map(list => list.map(raw => ({
+        date_heure: raw.date_heure,
+        soh: raw.soh_pourcent ?? null,
+        capacite: raw.capacite_ah ?? null,
+        rul_jours: raw.rul_jours ?? null,
+        temperature: raw.temperature_c ?? null
+      })))
+    );
   }
 
   /**

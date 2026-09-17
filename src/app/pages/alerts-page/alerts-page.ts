@@ -328,7 +328,7 @@ import { StructureService } from '../../superadmin/services/structure.service';
 
     .equipment-cell { display: flex; align-items: center; gap: 10px; }
     .equipment-name { font-weight: 600; color: #0F172A; font-size: 13px; }
-    .numero-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; color: #64748B; }
+    .numero-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 13px; font-weight: 600; color: #475569; letter-spacing: 0.3px; }
 
     .severite-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 600; }
     .severite-critique { background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; }

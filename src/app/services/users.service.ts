@@ -1,27 +1,40 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, of } from 'rxjs';
 import { User } from '../auth/auth.service';
+import { environment } from '../../environments/environment';
+import { mapBackendUser, toBackendRole, toBackendStatus } from '../core/user-mapper';
+import { extractHttpErrorMessage } from '../core/http-error';
 
 @Injectable({
   providedIn: 'root'
 })
 export class UsersService {
-  private readonly USERS_REGISTRY_KEY = 'shango_users';
+  private http = inject(HttpClient);
 
-  users = signal<User[]>(this.loadUsers());
+  users = signal<User[]>([]);
+  loading = signal(false);
+  error = signal<string | null>(null);
+  createError = signal<string | null>(null);
 
-  private loadUsers(): User[] {
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem(this.USERS_REGISTRY_KEY);
-      return raw ? JSON.parse(raw) : [];
-    }
-    return [];
+  constructor() {
+    this.load();
   }
 
-  private saveUsers(users: User[]): void {
-    this.users.set(users);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(this.USERS_REGISTRY_KEY, JSON.stringify(users));
-    }
+  /** Recharge la liste des utilisateurs depuis le backend (GET /api/users). */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.http.get<{ data: any[] }>(`${environment.apiUrl}/users`).pipe(
+      map(res => res.data.map(mapBackendUser)),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, 'de charger les utilisateurs'));
+        return of<User[]>([]);
+      })
+    ).subscribe(list => {
+      this.users.set(list);
+      this.loading.set(false);
+    });
   }
 
   /** Tous les utilisateurs (hors superadmin) */
@@ -34,44 +47,79 @@ export class UsersService {
     return this.getAllUsers().filter(u => u.structureId === structureId);
   }
 
-  /** Créer un utilisateur (rôle imposé par le système) */
-  createUser(user: Omit<User, 'id' | 'dateCreation'>): User {
-    const newUser: User = {
-      ...user,
-      id: Date.now(),
-      dateCreation: new Date().toISOString()
+  /** Créer un utilisateur (technicien ou admin de structure) — POST /api/users */
+  createUser(user: Omit<User, 'id' | 'dateCreation'> & { motDePasse?: string }): Observable<User | null> {
+    this.createError.set(null);
+    const body = {
+      name: user.name,
+      email: user.email,
+      password: user.motDePasse,
+      role: toBackendRole(user.role),
+      organization_id: user.structureId ? Number(user.structureId) : null,
+      phone: user.telephone,
+      status: toBackendStatus(user.statut)
     };
-    this.saveUsers([...this.users(), newUser]);
-    return newUser;
+    return this.http.post<{ data: any }>(`${environment.apiUrl}/users`, body).pipe(
+      map(res => {
+        const created = mapBackendUser(res.data);
+        this.users.set([...this.users(), created]);
+        return created;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.createError.set(extractHttpErrorMessage(error, "de créer l'utilisateur"));
+        return of(null);
+      })
+    );
   }
 
-  /** Mettre à jour un utilisateur */
-  updateUser(id: number, changes: Partial<User>): User | undefined {
-    const users = this.users();
-    const index = users.findIndex(u => u.id === id);
-    if (index === -1) return undefined;
-    const updated: User = { ...users[index], ...changes, id };
-    const newList = [...users];
-    newList[index] = updated;
-    this.saveUsers(newList);
-    return updated;
+  /** Mettre à jour un utilisateur — PUT /api/users/{id} */
+  updateUser(id: number, changes: Partial<User>): Observable<User | null> {
+    const body: Record<string, unknown> = {};
+    if (changes.name !== undefined) body['name'] = changes.name;
+    if (changes.email !== undefined) body['email'] = changes.email;
+    if (changes.motDePasse) body['password'] = changes.motDePasse;
+    if (changes.role !== undefined) body['role'] = toBackendRole(changes.role);
+    if (changes.structureId !== undefined) body['organization_id'] = changes.structureId ? Number(changes.structureId) : null;
+    if (changes.telephone !== undefined) body['phone'] = changes.telephone;
+    if (changes.statut !== undefined) body['status'] = toBackendStatus(changes.statut);
+
+    return this.http.put<{ data: any }>(`${environment.apiUrl}/users/${id}`, body).pipe(
+      map(res => {
+        const updated = mapBackendUser(res.data);
+        this.users.set(this.users().map(u => (u.id === id ? updated : u)));
+        return updated;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, "de modifier l'utilisateur"));
+        return of(null);
+      })
+    );
   }
 
   /** Activer/désactiver un utilisateur */
-  toggleStatus(id: number): User | undefined {
+  toggleStatus(id: number): Observable<User | null> {
     const user = this.users().find(u => u.id === id);
-    if (!user) return undefined;
+    if (!user) return of(null);
     const newStatus = user.statut === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     return this.updateUser(id, { statut: newStatus });
   }
 
-  /** Supprimer un utilisateur (technicien ou compte rejeté) */
-  deleteUser(id: number): void {
-    this.saveUsers(this.users().filter(u => u.id !== id));
+  /** Supprimer un utilisateur — DELETE /api/users/{id} */
+  deleteUser(id: number): Observable<boolean> {
+    return this.http.delete(`${environment.apiUrl}/users/${id}`).pipe(
+      map(() => {
+        this.users.set(this.users().filter(u => u.id !== id));
+        return true;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, "de supprimer l'utilisateur"));
+        return of(false);
+      })
+    );
   }
 
-  /** Recharger les utilisateurs depuis le stockage local */
+  /** Recharger les utilisateurs depuis le backend */
   reload(): void {
-    this.users.set(this.loadUsers());
+    this.load();
   }
 }

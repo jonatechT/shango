@@ -36,8 +36,7 @@ export class LoginComponent {
       return;
     }
     this.isLoading.set(true);
-    setTimeout(() => {
-      const result = this.authService.login(id, this.password());
+    this.authService.login(id, this.password()).subscribe(result => {
       this.isLoading.set(false);
       if (result.success) {
         const user = this.authService.getUser();
@@ -50,8 +49,8 @@ export class LoginComponent {
         // Compte en attente de validation admin : accès bloqué
         this.router.navigate(['/pending']);
       } else {
-        this.errorMessage.set('Identifiants incorrects.');
+        this.errorMessage.set(result.message || 'Identifiants incorrects.');
       }
-    }, 500);
+    });
   }
 }

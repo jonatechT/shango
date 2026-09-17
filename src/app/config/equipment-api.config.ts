@@ -15,8 +15,6 @@
  * Repasser `useMock` à `false` dès que le backend est branché.
  */
 export const EQUIPMENT_API_CONFIG = {
-  /** Base URL des endpoints batterie du backend. */
-  batteryBaseUrl: '/api/batterie',
   /** true = données simulées (pas de backend requis) ; false = backend réel. */
   useMock: true
 } as const;

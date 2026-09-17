@@ -1,13 +1,16 @@
 import { Component, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { BasePageComponent } from '../base-page/base-page';
 import { EquipmentService, Equipment } from '../../services/equipment.service';
 import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-form-modal';
 
+type FilterScope = 'tous' | 'client' | 'id' | 'date' | 'equipement';
+
 @Component({
   selector: 'app-equipment-list-page',
   standalone: true,
-  imports: [BasePageComponent, EquipmentFormModalComponent],
+  imports: [FormsModule, BasePageComponent, EquipmentFormModalComponent],
   template: `
     <app-base-page
       [title]="pageTitle"
@@ -47,12 +50,57 @@ import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-fo
           </div>
         </div>
 
-<!-- Tableau : Équipement | ID | Mise en ligne | Détail (bouton "Voir") -->
+<!-- ===== Filtres ===== -->
+        <div class="filter-bar">
+          <div class="filter-scope-select">
+            <button type="button" class="filter-scope-trigger" (click)="toggleFilterScope()">
+              <i [class]="'fa-solid ' + currentFilterScope.icon"></i>
+              <span>{{ currentFilterScope.label }}</span>
+              <i class="fa-solid fa-chevron-down filter-scope-chevron"></i>
+            </button>
+            @if (filterScopeOpen) {
+              <div class="filter-scope-backdrop" (click)="closeFilterScope()"></div>
+              <div class="filter-scope-menu" role="listbox">
+                @for (opt of filterScopeOptions; track opt.value) {
+                  <button type="button" class="filter-scope-option" [class.active]="filterScope === opt.value" (click)="selectFilterScope(opt.value)">
+                    <i [class]="'fa-solid ' + opt.icon"></i>
+                    <span>{{ opt.label }}</span>
+                    @if (filterScope === opt.value) { <i class="fa-solid fa-check filter-scope-check"></i> }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          <div class="filter-search-field">
+            <i class="fa-solid fa-magnifying-glass filter-field-icon"></i>
+            <input type="text" class="filter-input" [placeholder]="filterPlaceholder" [(ngModel)]="filterQuery" />
+            @if (filterQuery) {
+              <button type="button" class="filter-clear-btn" (click)="filterQuery = ''" aria-label="Effacer">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            }
+          </div>
+          @if (hasActiveFilters) {
+            <button type="button" class="filter-reset-btn" (click)="resetFilters()">
+              <i class="fa-solid fa-rotate-left"></i>
+              Réinitialiser
+            </button>
+          }
+        </div>
+
+<!-- Tableau : Client | Équipement | ID | Mise en ligne | Détail (bouton "Voir") -->
+        @if (filteredEquipments.length === 0) {
+          <div class="empty-state">
+            <i class="fa-solid fa-filter-circle-xmark empty-icon"></i>
+            <p>Aucun équipement ne correspond à ces filtres.</p>
+          </div>
+        } @else {
         <div class="table-card">
           <div class="table-wrapper">
             <table class="data-table">
               <thead>
                 <tr>
+                  <th>Client</th>
                   <th>Équipement</th>
                   <th>ID</th>
                   <th>Mise en ligne</th>
@@ -60,8 +108,9 @@ import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-fo
                 </tr>
               </thead>
               <tbody>
-                @for (eq of equipments; track eq.id; let i = $index) {
+                @for (eq of filteredEquipments; track eq.id; let i = $index) {
                   <tr class="row-clickable equip-row-animate" [style.animation-delay.ms]="70 * i" (click)="ouvrirDetail(eq.id)">
+                    <td><span class="client-name">{{ eq.clientNom || '—' }}</span></td>
                     <td>
                       <div class="equipment-cell">
                         <span class="equipment-name">{{ eq.nom }}</span>
@@ -80,6 +129,7 @@ import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-fo
             </table>
           </div>
         </div>
+        }
       </div>
     </app-base-page>
   `,
@@ -115,6 +165,160 @@ import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-fo
     .stat-icon--red { color: #EF4444; }
     .stat-card--green { background: #D1FAE5; border-color: rgba(16, 185, 129, 0.24); }
     .stat-icon--green { color: #10B981; }
+
+    /* ===== Filtres : sélecteur de portée + champ de recherche ===== */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* --- Sélecteur "portée" (Tous / Client / ID / Date / Équipement) --- */
+    .filter-scope-select { position: relative; flex: 0 0 190px; }
+    .filter-scope-trigger {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #1E293B;
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+    }
+    .filter-scope-trigger i:first-child { color: #2563EB; font-size: 13px; }
+    .filter-scope-trigger span { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .filter-scope-trigger:hover { border-color: #93C5FD; background-color: #F8FAFC; }
+    .filter-scope-chevron { font-size: 11px; color: #94A3B8; }
+
+    .filter-scope-backdrop { position: fixed; inset: 0; z-index: 55; }
+    .filter-scope-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      z-index: 56;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      animation: filterScopeIn 0.16s ease both;
+    }
+    @keyframes filterScopeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .filter-scope-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13.5px;
+      color: #334155;
+      text-align: left;
+      transition: background-color 0.12s ease, color 0.12s ease;
+    }
+    .filter-scope-option i:first-child { color: #94A3B8; font-size: 12px; width: 14px; text-align: center; }
+    .filter-scope-option span { flex: 1; }
+    .filter-scope-option:hover { background-color: #EFF6FF; }
+    .filter-scope-option.active { background-color: #EFF6FF; color: #1D4ED8; font-weight: 600; }
+    .filter-scope-option.active i:first-child { color: #2563EB; }
+    .filter-scope-check { color: #2563EB; font-size: 11px; }
+
+    /* --- Champ de recherche --- */
+    .filter-search-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 9px 14px;
+      flex: 1 1 260px;
+      min-width: 200px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .filter-search-field:focus-within {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    .filter-field-icon { color: #94A3B8; font-size: 13px; flex-shrink: 0; }
+    .filter-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: #0F172A;
+      min-width: 0;
+    }
+    .filter-input::placeholder { color: #94A3B8; }
+    .filter-clear-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border: none;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: #64748B;
+      font-size: 10px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .filter-clear-btn:hover { background: #CBD5E1; color: #334155; }
+
+    .filter-reset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #F1F5F9;
+      color: #475569;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease;
+    }
+    .filter-reset-btn:hover { background: #E2E8F0; }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 48px 24px;
+      color: #94A3B8;
+      text-align: center;
+    }
+    .empty-icon { font-size: 32px; color: #CBD5E1; }
+
+    @media (max-width: 640px) {
+      .filter-scope-select { flex: 1 1 100%; }
+      .filter-search-field { flex: 1 1 100%; }
+    }
 
     /* ===== Tableau (design conservé) ===== */
     .table-card { background: transparent; border: none; border-radius: 0; padding: 0; overflow: visible; box-shadow: none; }
@@ -157,7 +361,8 @@ import { EquipmentFormModalComponent } from '../equipment-form-page/equipment-fo
 
     .equipment-cell { display: flex; align-items: center; gap: 10px; }
     .equipment-name { font-weight: 600; color: #1E293B; font-size: 15px; }
-    .id-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 14px; font-weight: 500; color: #475569; letter-spacing: 0.3px; }
+    .id-code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 13px; font-weight: 600; color: #475569; letter-spacing: 0.3px; }
+    .client-name { font-size: 13.5px; color: #334155; }
     .sync-time { color: #64748B; font-size: 14px; }
     /* Bouton Voir (petit badge bleu autour du mot) */
     .btn-detail {
@@ -262,16 +467,86 @@ export class EquipmentListPageComponent {
   ) {
     this.enLigneMode = this.route.snapshot.data['enLigne'] === true;
 
-    const all = this.equipmentService.getAll();
     if (this.enLigneMode) {
-      // Seuls les équipements non bloqués apparaissent sur cette page.
-      // Les KPI restent ceux du parc complet (déjà cohérents) — pas d'écrasement.
-      this.equipments = all.filter(e => !e.bloque);
       this.pageTitle = 'Équipements en ligne';
       this.pageSubtitle = 'Équipements du parc actuellement non bloqués.';
-    } else {
-      this.equipments = all;
     }
+
+    // Affichage immédiat depuis le cache local, puis rafraîchissement depuis
+    // le vrai backend (GET /api/equipements) dès qu'il répond.
+    this.applyEquipments(this.equipmentService.getAll());
+    this.equipmentService.load().subscribe(list => this.applyEquipments(list));
+  }
+
+  private applyEquipments(all: Equipment[]): void {
+    // Seuls les équipements non bloqués apparaissent sur la page "en ligne".
+    // Les KPI restent ceux du parc complet (déjà cohérents) — pas d'écrasement.
+    this.equipments = this.enLigneMode ? all.filter(e => !e.bloque) : all;
+  }
+
+  // ===== Filtre : un champ de recherche + un sélecteur de portée =====
+  filterQuery = '';
+  filterScope: FilterScope = 'tous';
+  protected filterScopeOpen = false;
+
+  protected readonly filterScopeOptions: { value: FilterScope; label: string; icon: string }[] = [
+    { value: 'tous', label: 'Tous', icon: 'fa-list' },
+    { value: 'client', label: 'Client', icon: 'fa-user' },
+    { value: 'id', label: 'ID', icon: 'fa-hashtag' },
+    { value: 'date', label: 'Date de mise en ligne', icon: 'fa-calendar' },
+    { value: 'equipement', label: 'Équipement', icon: 'fa-cube' }
+  ];
+
+  protected get currentFilterScope() {
+    return this.filterScopeOptions.find(o => o.value === this.filterScope) ?? this.filterScopeOptions[0];
+  }
+
+  protected get filterPlaceholder(): string {
+    return this.filterScope === 'tous'
+      ? 'Rechercher (client, ID, date, équipement)...'
+      : `Rechercher par ${this.currentFilterScope.label.toLowerCase()}...`;
+  }
+
+  protected toggleFilterScope(): void {
+    this.filterScopeOpen = !this.filterScopeOpen;
+  }
+
+  protected closeFilterScope(): void {
+    this.filterScopeOpen = false;
+  }
+
+  protected selectFilterScope(scope: FilterScope): void {
+    this.filterScope = scope;
+    this.closeFilterScope();
+  }
+
+  protected get hasActiveFilters(): boolean {
+    return !!this.filterQuery.trim() || this.filterScope !== 'tous';
+  }
+
+  protected get filteredEquipments(): Equipment[] {
+    const q = this.filterQuery.trim().toLowerCase();
+    if (!q) return this.equipments;
+    return this.equipments.filter(e => {
+      switch (this.filterScope) {
+        case 'client': return (e.clientNom ?? '').toLowerCase().includes(q);
+        case 'id': return e.id.toLowerCase().includes(q);
+        case 'date': return e.miseEnLigne.toLowerCase().includes(q);
+        case 'equipement': return e.nom.toLowerCase().includes(q);
+        default:
+          return (
+            (e.clientNom ?? '').toLowerCase().includes(q) ||
+            e.id.toLowerCase().includes(q) ||
+            e.miseEnLigne.toLowerCase().includes(q) ||
+            e.nom.toLowerCase().includes(q)
+          );
+      }
+    });
+  }
+
+  protected resetFilters(): void {
+    this.filterQuery = '';
+    this.filterScope = 'tous';
   }
 
   ouvrirDetail(id: string): void {

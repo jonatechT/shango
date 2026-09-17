@@ -1,5 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, of } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { TOKEN_KEY as STORAGE_TOKEN_KEY, USER_KEY as STORAGE_USER_KEY } from '../core/storage-keys';
 
 export type UserRole = 'SUPERADMIN' | 'ADMIN_STRUCTURE' | 'USER';
 export type UserStatut = 'ACTIVE' | 'INACTIVE' | 'PENDING';
@@ -20,12 +24,12 @@ export interface User {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly TOKEN_KEY = 'shango_token';
+  private readonly TOKEN_KEY = STORAGE_TOKEN_KEY;
   private readonly USERS_CURRENT_VERSION = '4';
 
   /** Profil personnalisé du SuperAdmin (nom/email/téléphone/mot de passe modifiés depuis son profil) */
   private readonly SUPER_PROFILE_KEY = 'shango_superadmin_profile';
-  private readonly USER_KEY = 'shango_user';
+  private readonly USER_KEY = STORAGE_USER_KEY;
   private readonly USERS_REGISTRY_KEY = 'shango_users';
   private readonly USERS_VERSION_KEY = 'shango_users_version';
 
@@ -36,14 +40,50 @@ export class AuthService {
   /** Rôles valides — toute session avec un autre rôle est considérée obsolète */
   private readonly VALID_ROLES: UserRole[] = ['SUPERADMIN', 'ADMIN_STRUCTURE', 'USER'];
 
-  private readonly SUPER_ADMIN_EMAIL = 'superadmin@shango.com';
-  private readonly SUPER_ADMIN_PASSWORD = 'admin123';
-
   isLoggedIn = signal<boolean>(this.hasToken());
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.seedDemoUsers();
     this.migrateSession();
+  }
+
+  /** Traduit le rôle du backend (`superadmin`/`admin`/`technicien`) vers le rôle UI. */
+  private mapBackendRole(role: string): UserRole {
+    switch (role) {
+      case 'superadmin': return 'SUPERADMIN';
+      case 'admin': return 'ADMIN_STRUCTURE';
+      default: return 'USER';
+    }
+  }
+
+  /** Traduit le statut du backend (`actif`/`inactif`) vers le statut UI. */
+  private mapBackendStatus(status: string | null | undefined): UserStatut {
+    return status === 'inactif' ? 'INACTIVE' : 'ACTIVE';
+  }
+
+  /** Convertit un utilisateur renvoyé par l'API (`/api/login`, `/api/me`) au format UI. */
+  private mapBackendUser(raw: any): User {
+    return {
+      id: raw.id,
+      name: raw.name,
+      email: raw.email,
+      role: this.mapBackendRole(raw.role),
+      structureId: raw.organization_id != null ? String(raw.organization_id) : undefined,
+      statut: this.mapBackendStatus(raw.status),
+      telephone: raw.phone ?? undefined,
+      dateCreation: raw.created_at ?? undefined
+    };
+  }
+
+  /** Message d'erreur lisible à partir d'une réponse d'erreur HTTP du backend. */
+  private extractErrorMessage(error: HttpErrorResponse): string {
+    if (error.status === 0) {
+      return "Backend indisponible : impossible de se connecter au serveur.";
+    }
+    const errors = error.error?.errors as Record<string, string[]> | undefined;
+    const firstFieldError = errors ? Object.values(errors)[0]?.[0] : undefined;
+    const backendMessage = error.error?.message || firstFieldError;
+    return backendMessage || `Erreur ${error.status} lors de la connexion.`;
   }
 
   /** Comptes de démonstration pour les structures */
@@ -218,64 +258,44 @@ export class AuthService {
   }
 
   /**
-   * Connexion.
-   * @returns un objet indiquant si la connexion a réussi et si le compte
-   *          est en attente de validation par un administrateur.
+   * Connexion — POST /api/login (backend Laravel/Sanctum).
+   *
+   * `pending` reste toujours `false` : le backend n'a pas (encore) de statut
+   * de compte "en attente de validation" (voir `RegisterComponent`, dont
+   * l'inscription libre n'est pas encore connectée à une API réelle).
    */
-  login(email: string, password: string): { success: boolean; pending: boolean } {
-    if (email && password) {
-      // Compte SuperAdmin de démonstration (email d'origine OU email modifié depuis le profil)
-      const superProfile = this.getSuperAdminProfile();
-      const superEmails = [this.SUPER_ADMIN_EMAIL, ...(superProfile?.email ? [superProfile.email.toLowerCase()] : [])];
-      if (superEmails.includes(email.trim().toLowerCase()) && password === this.SUPER_ADMIN_PASSWORD) {
-        const user: User = {
-          id: 0,
-          name: superProfile?.name || 'SUPER ADMIN',
-          email: (superProfile?.email || email.trim().toLowerCase()),
-          role: 'SUPERADMIN',
-          telephone: superProfile?.telephone,
-          motDePasse: superProfile?.motDePasse || this.SUPER_ADMIN_PASSWORD
-        };
-        localStorage.setItem(this.TOKEN_KEY, 'mock-jwt-token-superadmin');
-        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-        this.isLoggedIn.set(true);
-        return { success: true, pending: false };
-      }
-
-      // Vérifier la base des utilisateurs enregistrés
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem(this.USERS_REGISTRY_KEY);
-        const registered = raw ? JSON.parse(raw) : [];
-        const existing = registered.find(
-          (u: User) => u.email.toLowerCase() === email.trim().toLowerCase()
-        );
-        if (existing) {
-          // Compte en attente de validation admin : accès refusé
-          if (existing.statut === 'PENDING') {
-            return { success: false, pending: true };
-          }
-          // Vérifier que le compte est actif
-          if (existing.statut === 'INACTIVE') {
-            return { success: false, pending: false };
-          }
-          // Vérifier le mot de passe si le compte en a un défini
-          if (existing.motDePasse && existing.motDePasse !== password) {
-            return { success: false, pending: false };
-          }
-          localStorage.setItem(this.TOKEN_KEY, 'mock-jwt-token');
-          localStorage.setItem(this.USER_KEY, JSON.stringify(existing));
+  login(email: string, password: string): Observable<{ success: boolean; pending: boolean; message?: string }> {
+    return this.http
+      .post<{ user: any; token: string }>(`${environment.apiUrl}/login`, { email, password })
+      .pipe(
+        map(response => {
+          const user = this.mapBackendUser(response.user);
+          localStorage.setItem(this.TOKEN_KEY, response.token);
+          localStorage.setItem(this.USER_KEY, JSON.stringify(user));
           this.isLoggedIn.set(true);
           return { success: true, pending: false };
-        }
-      }
+        }),
+        catchError((error: HttpErrorResponse) =>
+          of({ success: false, pending: false, message: this.extractErrorMessage(error) })
+        )
+      );
+  }
 
-      // Aucun compte enregistré (ni SuperAdmin, ni structure, ni technicien) pour cet
-      // e-mail : accès refusé. Seuls les comptes déjà présents sur la plateforme
-      // (comptes de démonstration, ou créés par le SuperAdmin/un admin de structure)
-      // peuvent se connecter — il n'y a plus de compte « passe-partout ».
-      return { success: false, pending: false };
-    }
-    return { success: false, pending: false };
+  /**
+   * Récupère l'utilisateur authentifié depuis le backend (GET /api/me) et
+   * rafraîchit la session locale. Utile pour valider/actualiser la session
+   * au démarrage de l'application sans forcer une reconnexion.
+   */
+  refreshCurrentUser(): Observable<User | null> {
+    if (!this.hasToken()) return of(null);
+    return this.http.get<any>(`${environment.apiUrl}/me`).pipe(
+      map(raw => {
+        const user = this.mapBackendUser(raw);
+        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+        return user;
+      }),
+      catchError(() => of(null))
+    );
   }
 
   /** Récupérer tous les comptes en attente de validation (vue globale superadmin) */
@@ -409,6 +429,11 @@ export class AuthService {
   }
 
   logout(): void {
+    // Révocation du token côté backend en best-effort : la session locale est
+    // nettoyée immédiatement quel que soit le résultat de l'appel.
+    if (this.hasToken()) {
+      this.http.post(`${environment.apiUrl}/logout`, {}).subscribe({ error: () => {} });
+    }
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this.isLoggedIn.set(false);

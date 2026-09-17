@@ -81,7 +81,46 @@
         </button>
         <div class="search-container">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" class="search-input" placeholder="Rechercher un équipement" />
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Rechercher un équipement (nom, ID, client, boîtier...)"
+            [value]="searchQuery"
+            (input)="onSearchInput($any($event.target).value)"
+            (keydown.enter)="onSearchSubmit()"
+            (keydown.escape)="closeSearch()"
+            autocomplete="off"
+          />
+          @if (searchQuery) {
+            <button type="button" class="search-clear" (click)="closeSearch()" aria-label="Effacer la recherche">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          }
+
+          @if (showSearchResults) {
+            <div class="search-results-overlay" (click)="closeSearch()"></div>
+            <div class="search-results-dropdown" role="listbox">
+              @if (searchResults.length === 0) {
+                <div class="search-results-empty">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <span>Aucun équipement ne correspond à « {{ searchQuery }} ».</span>
+                </div>
+              } @else {
+                @for (eq of searchResults; track eq.id) {
+                  <button type="button" class="search-result-item" (click)="openSearchResult(eq.id)">
+                    <span class="search-result-icon"><i class="fa-solid fa-cube"></i></span>
+                    <span class="search-result-text">
+                      <span class="search-result-name">{{ eq.nom }}</span>
+                      <span class="search-result-meta">
+                        {{ eq.id }}
+                        @if (eq.clientNom) { · {{ eq.clientNom }} }
+                      </span>
+                    </span>
+                  </button>
+                }
+              }
+            </div>
+          }
         </div>
       </div>
       <div class="topbar-actions">

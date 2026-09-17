@@ -1,5 +1,6 @@
-import { Injectable, effect, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { SettingsService } from './settings.service';
+import { AuthService } from '../auth/auth.service';
 
 export interface MaintenanceItem {
   id: string;
@@ -69,8 +70,16 @@ export interface RapportIntervention {
   providedIn: 'root'
 })
 export class MaintenanceService {
-  private readonly STORAGE_KEY = 'shango_maintenance_v7';
+  private readonly STORAGE_KEY = 'shango_maintenance_v8';
   private readonly NOTIFICATIONS_STORAGE_KEY = 'shango_notifications_v1';
+
+  // Champ injecté (pas un paramètre de constructeur) : les initialiseurs de
+  // champ de classe s'exécutent AVANT l'assignation des paramètres du
+  // constructeur (même les "parameter properties" de TypeScript) — comme
+  // `maintenanceItems` ci-dessous appelle `loadInitialData()` qui utilise
+  // `authService` dès l'initialisation du champ, il doit être disponible
+  // avant, donc déclaré ici et non en paramètre de constructeur.
+  private authService = inject(AuthService);
 
   readonly maintenanceItems = signal<MaintenanceItem[]>(this.loadInitialData());
   /**
@@ -109,6 +118,23 @@ export class MaintenanceService {
     // Notifications automatiques : signaler aux techniciens affectés les
     // interventions planifiées dont la date approche (réglé dans /parametres).
     this.verifierProchainesInterventions();
+
+    // Resynchronisation à chaque connexion : ce service est injecté dans
+    // app.ts (racine), donc construit AVANT toute connexion (dès la page de
+    // login) — le structureId de l'utilisateur n'est alors pas encore
+    // connu. On réagit ici à chaque passage à "connecté" (connexion initiale
+    // OU changement de compte de test dans le même navigateur) pour
+    // réattacher les données de démo à la bonne structure.
+    effect(() => {
+      if (!this.authService.isLoggedIn()) return;
+      untracked(() => {
+        const current = this.maintenanceItems();
+        const resynced = this.resyncStructureId(current);
+        if (resynced !== current) {
+          this.maintenanceItems.set(resynced);
+        }
+      });
+    }, { allowSignalWrites: true });
   }
 
   private loadNotifications(): NotificationItem[] {
@@ -131,8 +157,33 @@ export class MaintenanceService {
     }
   }
 
+  /**
+   * Réattribue les items de démo déjà en cache à la structure de
+   * l'utilisateur ACTUELLEMENT connecté si aucun d'eux ne lui appartient déjà.
+   *
+   * Le seed initial fige un structureId au premier chargement (voir plus
+   * bas) ; mais en cours de développement/tests, un même navigateur teste
+   * souvent plusieurs comptes admin (donc plusieurs structureId) — sans ce
+   * filet, les données de démo restent figées sur le TOUT premier compte
+   * utilisé et deviennent invisibles (page vide) pour tout autre compte,
+   * alors qu'on veut toujours au moins un élément visible pour tester.
+   */
+  private resyncStructureId(items: MaintenanceItem[]): MaintenanceItem[] {
+    const currentId = this.authService.getUser()?.structureId;
+    if (!currentId) return items;
+    if (items.some(i => i.structureId === currentId)) return items;
+    const resynced = items.map(i => ({ ...i, structureId: currentId }));
+    this.save(resynced);
+    return resynced;
+  }
+
   private loadInitialData(): MaintenanceItem[] {
-    // Nettoyage des anciennes clés de stockage (migration v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7)
+    // Nettoyage des anciennes clés de stockage (migration v1 -> ... -> v7 -> v8).
+    // v8 : les items de démo v7 portaient un structureId fictif ("STR-001")
+    // qui ne correspond plus à rien depuis le passage au vrai backend (les
+    // structureId réels sont des ID d'organisation numériques, ex. "3") —
+    // les pages Alertes/Maintenance (filtrées par structureId) restaient
+    // vides pour tout le monde à cause de ce décalage.
     if (typeof window !== 'undefined') {
       localStorage.removeItem('shango_maintenance');
       localStorage.removeItem('shango_maintenance_v2');
@@ -140,6 +191,7 @@ export class MaintenanceService {
       localStorage.removeItem('shango_maintenance_v4');
       localStorage.removeItem('shango_maintenance_v5');
       localStorage.removeItem('shango_maintenance_v6');
+      localStorage.removeItem('shango_maintenance_v7');
     }
     // Charger les données persistées : les prises d'alerte doivent survivre
     // à un rafraîchissement pour que tous les techniciens voient qui a pris quoi.
@@ -149,85 +201,18 @@ export class MaintenanceService {
         try {
           const stored = JSON.parse(raw) as MaintenanceItem[];
           if (Array.isArray(stored) && stored.length > 0) {
-            return stored;
+            return this.resyncStructureId(stored);
           }
         } catch {
           /* données corrompues : on retombe sur les données de démonstration */
         }
       }
     }
-    // Un item par équipement existant, couvrant les 4 états du cycle de vie
-    // (alerte critique non prise, alerte avertissement non prise, en cours, terminée).
-    const items: MaintenanceItem[] = [
-      {
-        id: 'm1', numero: 1, equipment: 'Kit solaire #SK-045', type: 'Violation de box',
-        severite: 'Critique', datePrevue: '10 septembre 2026', technicien: '', statut: 'En attente', alertes: 1,
-        localisation: '12.3685°N, -1.5250°E', lienLocalisation: '12.3685,-1.5250'
-      },
-      {
-        id: 'm2', numero: 2, equipment: 'Kit solaire #SK-067', type: 'Déplacement non autorisé',
-        severite: 'Avertissement', datePrevue: '10 septembre 2026', technicien: '', statut: 'En attente', alertes: 1,
-        localisation: '11.1784°N, -4.2979°E', lienLocalisation: '11.1784,-4.2979'
-      },
-      {
-        id: 'm3', numero: 3, equipment: 'Kit solaire #SK-089', type: 'Charge trop lente',
-        datePrevue: '15 août 2026', technicien: 'M. Ouedraogo', statut: 'En cours', alertes: 1,
-        prisPar: 'M. Ouedraogo', datePrise: '05/09 09:12',
-        localisation: '12.2513°N, -2.3510°E', lienLocalisation: '12.2513,-2.3510'
-      },
-      {
-        id: 'm4', numero: 4, equipment: 'Kit solaire #SK-102', type: 'Nettoyage panneaux',
-        datePrevue: '20 août 2026', technicien: 'M. Traore', statut: 'Terminée', alertes: 0,
-        prisPar: 'M. Traore', datePrise: '20/08 14:30',
-        localisation: '12.3714°N, -1.5197°E', lienLocalisation: '12.3714,-1.5197',
-        rapport: {
-          contenu: 'Nettoyage complet des panneaux solaires, aucune anomalie détectée.',
-          dateRedaction: '20/08/2026',
-          redacteur: 'M. Traore',
-          dureeIntervention: '45 min'
-        }
-      }
-    ];
-    this.save(items);
-
-    // ===== Isolation multi-structures =====
-    // Chaque intervention appartient à une structure. Les données anciennes
-    // (sans structureId) sont rattachées par leur équipement (défaut : STR-001).
-    const structureParEquipement: Record<string, string> = {
-      'Kit solaire #SK-045': 'STR-001',
-      'Kit solaire #SK-067': 'STR-001',
-      'Kit solaire #SK-089': 'STR-001',
-      'Kit solaire #SK-102': 'STR-001',
-      'Groupe électrogène #GE-021': 'STR-002',
-      'Engin minier #EM-045': 'STR-003'
-    };
-
-    let liste: MaintenanceItem[] = items.map(i => ({
-      ...i,
-      structureId: i.structureId || structureParEquipement[i.equipment] || 'STR-001'
-    }));
-
-    // Alertes par défaut des autres structures (bonne simulation du multi-tenants).
-    const ids = new Set(liste.map(i => i.id));
-    if (!ids.has('m5')) {
-      liste.push({
-        id: 'm5', numero: 5, equipment: 'Groupe électrogène #GE-021', type: 'Niveau carburant faible',
-        severite: 'Avertissement', structureId: 'STR-002', datePrevue: '10 septembre 2026',
-        technicien: '', statut: 'En attente', alertes: 1,
-        localisation: '12.4100°N, -1.5200°E', lienLocalisation: '12.41,-1.52'
-      });
-    }
-    if (!ids.has('m6')) {
-      liste.push({
-        id: 'm6', numero: 6, equipment: 'Engin minier #EM-045', type: 'Température moteur élevée',
-        severite: 'Critique', structureId: 'STR-003', datePrevue: '10 septembre 2026',
-        technicien: '', statut: 'En attente', alertes: 1,
-        localisation: '11.7800°N, -4.2100°E', lienLocalisation: '11.78,-4.21'
-      });
-    }
-
-    this.save(liste);
-    return liste;
+    // Aucune donnée de démo : Maintenance/Alertes/Rapports n'ont pas encore
+    // de vrai backend (voir SHANGO/FRONTEND_INTEGRATION_GAPS.md §4-5) ; les
+    // pages restent vides tant que ce n'est pas branché, plutôt que
+    // d'afficher de faux équipements/clients dans une démo publique.
+    return [];
   }
 
   /** Prochain numéro d'affichage disponible (monotone, jamais réutilisé). */

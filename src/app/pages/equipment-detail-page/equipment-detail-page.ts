@@ -188,7 +188,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-summary-icon"><i class="fa-solid fa-cube"></i></span>
             }
             <div class="eqd-summary-info">
-              <h2 class="eqd-summary-name">{{ equipmentDisplayName }}</h2>
+              <h2 class="eqd-summary-name">{{ equipment.nom }}</h2>
               <div class="eqd-summary-id">
                 <span class="eqd-id-chip">ID</span>
                 <span class="eqd-id-value">{{ equipment.id }}</span>
@@ -205,66 +205,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </span>
           </div>
         </section>
-
-        <!-- ===== Informations générales ===== -->
-        @if (hasInfosGenerales) {
-          <section class="eqd-infos-generales">
-            <header class="eqd-bdiag-head">
-              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
-              <div class="eqd-bdiag-head-text">
-                <h3 class="eqd-bdiag-title">Informations générales</h3>
-              </div>
-            </header>
-            <div class="eqd-infos-grid">
-              <div class="eqd-infos-item">
-                <span class="eqd-infos-key">Type / catégorie</span>
-                <span class="eqd-infos-value">{{ equipment.type }}</span>
-              </div>
-              @if (equipment.marqueModele) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Marque / modèle</span>
-                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
-                </div>
-              }
-              @if (equipment.clientNom) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Nom du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
-                </div>
-              }
-              @if (equipment.clientNumero) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Numéro du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
-                </div>
-              }
-              @if (equipment.site) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Site / emplacement</span>
-                  <span class="eqd-infos-value">{{ equipment.site }}</span>
-                </div>
-              }
-              @if (equipment.boitierId) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
-                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
-                </div>
-              }
-              @if (equipment.responsable) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Responsable</span>
-                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
-                </div>
-              }
-              @if (equipment.perimetreMetres) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Périmètre autorisé</span>
-                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
-                </div>
-              }
-            </div>
-          </section>
-        }
 
         <!-- ===== Grille des indicateurs ===== -->
         <section class="eqd-grid">
@@ -337,6 +277,42 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               </div>
             }
           </article>
+
+          <!-- Humidité -->
+          <article class="eqd-card">
+            <div class="eqd-card-head">
+              <span class="eqd-chip eqd-chip-orange"><i class="fa-solid fa-droplet"></i></span>
+              <span class="eqd-card-label">Humidité</span>
+            </div>
+            @if (batteryDiagnostic()?.humidite_pourcent !== null && batteryDiagnostic()?.humidite_pourcent !== undefined) {
+              <div class="eqd-card-value">{{ batteryHumidityDisplay }}</div>
+              <div class="eqd-card-meta">Mesure du diagnostic batterie</div>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+              </div>
+            }
+          </article>
+
+          <!-- Statut paiement -->
+          <article class="eqd-card">
+            <div class="eqd-card-head">
+              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+              <span class="eqd-card-label">Statut paiement</span>
+            </div>
+            @if (batteryDiagnostic()?.statut_paiement) {
+              <div [class]="'eqd-card-value ' + paiementStatusClass">{{ batteryPaiementDisplay }}</div>
+              <div class="eqd-card-meta">Fourni par le backend</div>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+              </div>
+            }
+          </article>
         </section>
 
         <!-- ===== Carte diagnostic batterie ===== -->
@@ -345,6 +321,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             <span class="eqd-chip eqd-chip-purple eqd-chip-lg"><i class="fa-solid fa-battery-full"></i></span>
             <div class="eqd-bdiag-head-text">
               <h3 class="eqd-bdiag-title">SOH et RUL</h3>
+              <p class="eqd-bdiag-sub">State of Health and Remaining Useful Life</p>
             </div>
             <div class="eqd-bdiag-head-actions">
               @if (batteryDiagnostic()) {
@@ -485,17 +462,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </div>
           }
 
-          <!-- ===== Glossaire SOH / RUL ===== -->
-          <div class="eqd-bdiag-glossary">
-            <div class="eqd-bdiag-glossary-item">
-              <span class="eqd-bdiag-glossary-term">SOH <span class="eqd-bdiag-glossary-full">(State of Health)</span></span>
-              <span class="eqd-bdiag-glossary-def">État de santé de la batterie : pourcentage de sa capacité actuelle par rapport à sa capacité d'origine.</span>
-            </div>
-            <div class="eqd-bdiag-glossary-item">
-              <span class="eqd-bdiag-glossary-term">RUL <span class="eqd-bdiag-glossary-full">(Remaining Useful Life)</span></span>
-              <span class="eqd-bdiag-glossary-def">Durée de vie utile restante estimée avant qu'un remplacement de la batterie soit nécessaire.</span>
-            </div>
-          </div>
         </section>
 <!-- ===== Historique de la batterie ===== -->
         <section class="eqd-battery-history">
@@ -635,6 +601,66 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           }
         </section>
+
+        <!-- ===== Informations générales (en bas de page) ===== -->
+        @if (hasInfosGenerales) {
+          <section class="eqd-infos-generales">
+            <header class="eqd-bdiag-head">
+              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="eqd-bdiag-head-text">
+                <h3 class="eqd-bdiag-title">Informations générales</h3>
+              </div>
+            </header>
+            <div class="eqd-infos-grid">
+              <div class="eqd-infos-item">
+                <span class="eqd-infos-key">Type / catégorie</span>
+                <span class="eqd-infos-value">{{ equipment.type }}</span>
+              </div>
+              @if (equipment.marqueModele) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Marque / modèle</span>
+                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
+                </div>
+              }
+              @if (equipment.clientNom) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Nom du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
+                </div>
+              }
+              @if (equipment.clientNumero) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Numéro du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
+                </div>
+              }
+              @if (equipment.site) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Site / emplacement</span>
+                  <span class="eqd-infos-value">{{ equipment.site }}</span>
+                </div>
+              }
+              @if (equipment.boitierId) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
+                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
+                </div>
+              }
+              @if (equipment.responsable) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Responsable</span>
+                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
+                </div>
+              }
+              @if (equipment.perimetreMetres) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Périmètre autorisé</span>
+                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
       }
     </div>
@@ -1185,6 +1211,8 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
     .eqd-chip-purple { background: rgba(109, 74, 255, 0.12); color: #6D4AFF; }
     .eqd-chip-cyan { background: rgba(14, 165, 233, 0.12); color: #0EA5E9; }
     .eqd-chip-green { background: rgba(32, 201, 151, 0.14); color: #12B886; }
+    .eqd-chip-orange { background: rgba(251, 146, 60, 0.14); color: #F97316; }
+    .eqd-chip-amber { background: rgba(245, 158, 11, 0.14); color: #D97706; }
 
     .eqd-card-label {
       font-size: 11.5px;
@@ -1507,23 +1535,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       flex: 1;
       min-width: 0;
       word-break: break-word;
-    }
-
-    .eqd-bdiag-glossary {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 18px;
-      padding-top: 18px;
-      border-top: 1px dashed rgba(23, 32, 51, 0.12);
-    }
-    .eqd-bdiag-glossary-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .eqd-bdiag-glossary-term { font-size: 13px; font-weight: 700; color: #172033; }
-    .eqd-bdiag-glossary-full { font-weight: 500; color: #7A8499; font-size: 12px; }
-    .eqd-bdiag-glossary-def { font-size: 12.5px; line-height: 1.5; color: #64748B; }
-
-    @media (max-width: 640px) {
-      .eqd-bdiag-glossary { grid-template-columns: 1fr; }
     }
 
     .eqd-bdiag-msg--success {
@@ -2139,10 +2150,6 @@ export class EquipmentDetailPageComponent implements OnInit {
   diagnostic: EquipmentDiagnostic = { etat: 'État normal', gravite: '—', anomalie: null };
 
   /** Nom affiché en en-tête : le suffixe « #XXX » (instance) est retiré, l'ID en dessous suffit à identifier l'équipement précis. */
-  get equipmentDisplayName(): string {
-    return this.equipment?.nom.replace(/\s*#.*$/, '').trim() || '';
-  }
-
   /** true si au moins un champ complémentaire (marque, client, site…) est renseigné. */
   get hasInfosGenerales(): boolean {
     const e = this.equipment;
@@ -2205,6 +2212,17 @@ export class EquipmentDetailPageComponent implements OnInit {
         this.diagnostic = this.equipmentService.getDiagnostic(eq);
         this.checkAlertStatus();
       }
+      // Rafraîchit depuis le vrai backend (utile en cas d'accès direct à
+      // l'URL avant que le parc réel ait été chargé, ou si l'équipement a
+      // été créé depuis un autre poste).
+      this.equipmentService.load().subscribe(() => {
+        const refreshed = this.equipmentService.getById(id);
+        if (refreshed) {
+          this.equipment = refreshed;
+          this.diagnostic = this.equipmentService.getDiagnostic(refreshed);
+          this.checkAlertStatus();
+        }
+      });
       // Historique batterie : consommation des endpoints backend.
       // (Le frontend n'exécute aucune prédiction IA.)
       // Le diagnostic courant n'est PAS lancé automatiquement : il démarre

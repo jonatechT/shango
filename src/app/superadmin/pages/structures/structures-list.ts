@@ -4,7 +4,13 @@ import { RouterLink, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Structure } from '../../models/structure.model';
 import { StructureService } from '../../services/structure.service';
-import { AuthService, User } from '../../../auth/auth.service';
+import {
+  INDICATIFS_TELEPHONE,
+  getIndicatif,
+  getPhoneLength,
+  phonePlaceholder,
+  sanitizePhoneDigits
+} from '../../../core/phone-indicatifs';
 
 interface StructureForm {
   nom: string;
@@ -23,23 +29,6 @@ interface StructureForm {
   adminTelephone: string;
   adminMotDePasse: string;
 }
-
-/** Indicatifs téléphoniques proposés dans le formulaire (Afrique de l'Ouest en priorité). */
-export const INDICATIFS_TELEPHONE: { code: string; pays: string }[] = [
-  { code: '+226', pays: 'Burkina Faso' },
-  { code: '+225', pays: "Côte d'Ivoire" },
-  { code: '+223', pays: 'Mali' },
-  { code: '+227', pays: 'Niger' },
-  { code: '+228', pays: 'Togo' },
-  { code: '+229', pays: 'Bénin' },
-  { code: '+221', pays: 'Sénégal' },
-  { code: '+233', pays: 'Ghana' },
-  { code: '+234', pays: 'Nigeria' },
-  { code: '+237', pays: 'Cameroun' },
-  { code: '+241', pays: 'Gabon' },
-  { code: '+33', pays: 'France' },
-  { code: '+1', pays: 'États-Unis / Canada' }
-];
 
 @Component({
   selector: 'app-structures-list',
@@ -83,13 +72,12 @@ export class StructuresListComponent implements OnInit {
 
   constructor(
     private structureService: StructureService,
-    private authService: AuthService,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    // Simulate a small load time for UX
-    setTimeout(() => this.isLoading.set(false), 300);
+    this.structureService.load();
+    this.isLoading.set(false);
   }
 protected verStructure(id: string): void {
     this.router.navigate(['/superadmin/structures', id]);
@@ -108,13 +96,17 @@ protected verStructure(id: string): void {
   protected confirmToggle(): void {
     const s = this.selectedStructure();
     if (!s) return;
-    const updated = this.structureService.toggleStatus(s.id);
-    if (updated) {
-      const action = updated.statut === 'ACTIVE' ? 'activée' : 'désactivée';
-      this.message.set(`La structure « ${updated.nom} » a été ${action} avec succès.`);
-      this.messageType.set('success');
-      setTimeout(() => this.message.set(''), 4000);
-    }
+    this.structureService.toggleStatus(s.id).subscribe(updated => {
+      if (updated) {
+        const action = updated.statut === 'ACTIVE' ? 'activée' : 'désactivée';
+        this.message.set(`La structure « ${updated.nom} » a été ${action} avec succès.`);
+        this.messageType.set('success');
+        setTimeout(() => this.message.set(''), 4000);
+      } else {
+        this.message.set(this.structureService.error() || 'Une erreur est survenue.');
+        this.messageType.set('error');
+      }
+    });
     this.cancelModal();
   }
 
@@ -178,6 +170,10 @@ protected verStructure(id: string): void {
       const f = this.form;
       if (!f.nom.trim()) { this.stepError.set('Le nom de la structure est obligatoire.'); return; }
       if (!f.email.trim() || !this.isValidEmail(f.email)) { this.stepError.set('Veuillez saisir un email valide pour la structure.'); return; }
+      if (f.telephone.trim() && f.telephone.trim().length !== this.getPhoneLength(f.indicatif)) {
+        this.stepError.set(`Le numéro doit contenir exactement ${this.getPhoneLength(f.indicatif)} chiffres pour l'indicatif ${f.indicatif}.`);
+        return;
+      }
       this.step.set(2);
     } else if (s === 2) {
       const f = this.form;
@@ -193,6 +189,10 @@ protected verStructure(id: string): void {
       }
       if (!f.adminMotDePasse || f.adminMotDePasse.length < 8) {
         this.stepError.set('Le mot de passe est obligatoire (8 caractères minimum) : sans lui, personne ne pourra se connecter à cette structure.');
+        return;
+      }
+      if (f.adminTelephone.trim() && f.adminTelephone.trim().length !== this.getPhoneLength(f.adminIndicatif)) {
+        this.stepError.set(`Le numéro de l'administrateur doit contenir exactement ${this.getPhoneLength(f.adminIndicatif)} chiffres pour l'indicatif ${f.adminIndicatif}.`);
         return;
       }
       this.step.set(4);
@@ -213,54 +213,97 @@ protected verStructure(id: string): void {
     return n ? `${indicatif} ${n}` : '';
   }
 
+  /** Nombre de chiffres attendu pour l'indicatif donné (8 par défaut). */
+  protected getPhoneLength(indicatif: string): number {
+    return getPhoneLength(indicatif);
+  }
+
+  /** Détails (pays, drapeau) de l'indicatif sélectionné. */
+  protected getIndicatif(code: string) {
+    return getIndicatif(code);
+  }
+
+  // ===== Menu déroulant personnalisé (drapeau + indicatif) =====
+  // Un <select> natif ne peut afficher que du texte dans ses <option> : pour
+  // montrer un vrai drapeau (flag-icons), il faut un menu déroulant "maison".
+  protected indicatifMenuOpen = signal(false);
+  protected adminIndicatifMenuOpen = signal(false);
+
+  protected toggleIndicatifMenu(which: 'indicatif' | 'adminIndicatif'): void {
+    if (which === 'indicatif') {
+      this.indicatifMenuOpen.update(v => !v);
+      this.adminIndicatifMenuOpen.set(false);
+    } else {
+      this.adminIndicatifMenuOpen.update(v => !v);
+      this.indicatifMenuOpen.set(false);
+    }
+  }
+
+  protected closeIndicatifMenus(): void {
+    this.indicatifMenuOpen.set(false);
+    this.adminIndicatifMenuOpen.set(false);
+  }
+
+  protected selectIndicatif(which: 'indicatif' | 'adminIndicatif', code: string): void {
+    this.form[which] = code;
+    const field = which === 'indicatif' ? 'telephone' : 'adminTelephone';
+    // Retronque le numéro déjà saisi si le nouveau pays a une longueur plus courte.
+    this.form[field] = this.form[field].slice(0, this.getPhoneLength(code));
+    this.closeIndicatifMenus();
+  }
+
+  /** Espace réservé dynamique (ex. "XX XX XX XX" pour 8 chiffres, "XX XX XX XX XX" pour 10). */
+  protected phonePlaceholder(indicatif: string): string {
+    return phonePlaceholder(indicatif);
+  }
+
+  /**
+   * Nettoie la saisie du numéro (chiffres uniquement) et la tronque à la
+   * longueur exacte attendue pour l'indicatif sélectionné — impossible de
+   * dépasser cette longueur ; la validation d'étape empêche de valider en
+   * dessous.
+   */
+  protected setPhone(field: 'telephone' | 'adminTelephone', indicatifField: 'indicatif' | 'adminIndicatif', value: string): void {
+    this.form[field] = sanitizePhoneDigits(value, this.form[indicatifField]);
+  }
+
   protected submitCreate(): void {
     this.stepError.set('');
     this.message.set('');
     this.isSaving.set(true);
 
     const f = this.form;
-    setTimeout(() => {
-      const created = this.structureService.createStructure({
-        nom: f.nom.trim(),
-        code: this.genererCodeStructure(f.nom.trim()),
-        description: f.description.trim(),
-        email: f.email.trim().toLowerCase(),
-        telephone: this.telephoneComplet(f.indicatif, f.telephone),
-        adresse: f.adresse.trim(),
-        ville: f.ville.trim(),
-        pays: f.pays.trim(),
-        statut: f.statut,
-        adminNom: f.adminNom.trim() || undefined,
-        adminEmail: f.adminEmail.trim().toLowerCase() || undefined,
-        adminTelephone: this.telephoneComplet(f.adminIndicatif, f.adminTelephone) || undefined
-      });
-
-      // Créer l'administrateur de structure si renseigné
-      if (f.adminNom.trim() && f.adminEmail.trim() && f.adminMotDePasse) {
-        const adminUser: User = {
-          id: Date.now(),
-          name: f.adminNom.trim(),
-          email: f.adminEmail.trim().toLowerCase(),
-          role: 'ADMIN_STRUCTURE',
-          structureId: created.id,
-          statut: 'ACTIVE',
-          telephone: this.telephoneComplet(f.adminIndicatif, f.adminTelephone) || undefined,
-          dateCreation: new Date().toISOString(),
-          motDePasse: f.adminMotDePasse
-        };
-        this.authService.registerUser(adminUser);
+    this.structureService.createStructure({
+      nom: f.nom.trim(),
+      code: this.genererCodeStructure(f.nom.trim()),
+      description: f.description.trim(),
+      email: f.email.trim().toLowerCase(),
+      telephone: this.telephoneComplet(f.indicatif, f.telephone),
+      adresse: f.adresse.trim(),
+      ville: f.ville.trim(),
+      pays: f.pays.trim(),
+      statut: f.statut,
+      adminNom: f.adminNom.trim() || undefined,
+      adminEmail: f.adminEmail.trim().toLowerCase() || undefined,
+      adminTelephone: this.telephoneComplet(f.adminIndicatif, f.adminTelephone) || undefined,
+      adminMotDePasse: f.adminMotDePasse || undefined
+    }).subscribe(created => {
+      this.isSaving.set(false);
+      if (!created) {
+        this.stepError.set(this.structureService.error() || 'Une erreur est survenue lors de la création.');
+        return;
       }
 
-      this.isSaving.set(false);
-      this.message.set(`La structure « ${created.nom} » a été créée avec succès.`);
-      this.messageType.set('success');
+      const errorMsg = this.structureService.error();
+      this.message.set(errorMsg || `La structure « ${created.nom} » a été créée avec succès.`);
+      this.messageType.set(errorMsg ? 'error' : 'success');
 
       setTimeout(() => {
         this.closeCreateModal();
-        this.message.set(`La structure « ${created.nom} » a été créée avec succès.`);
-        this.messageType.set('success');
+        this.message.set(errorMsg || `La structure « ${created.nom} » a été créée avec succès.`);
+        this.messageType.set(errorMsg ? 'error' : 'success');
         setTimeout(() => this.message.set(''), 4000);
       }, 1200);
-    }, 500);
+    });
   }
 }

@@ -1,176 +1,234 @@
-import { Injectable, signal } from '@angular/core';
-import { Structure, StructureStats } from '../models/structure.model';
-import { MaintenanceService } from '../../services/maintenance.service';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
+import { Structure, StructureStats, StructureStatus } from '../models/structure.model';
+import { environment } from '../../../environments/environment';
+import { extractHttpErrorMessage } from '../../core/http-error';
+
+export interface StructureInput {
+  nom: string;
+  code?: string;
+  description: string;
+  email?: string;
+  telephone?: string;
+  adresse: string;
+  ville?: string;
+  pays?: string;
+  statut: StructureStatus;
+  adminNom?: string;
+  adminEmail?: string;
+  adminTelephone?: string;
+  adminMotDePasse?: string;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class StructureService {
-  private readonly STORAGE_KEY = 'shango_structures';
-  private readonly STORAGE_VERSION_KEY = 'shango_structures_version';
-  private readonly CURRENT_VERSION = '5';
+  private http = inject(HttpClient);
 
-  structures = signal<Structure[]>(this.loadStructures());
+  structures = signal<Structure[]>([]);
+  loading = signal(false);
+  error = signal<string | null>(null);
 
-  constructor(private maintenanceService: MaintenanceService) {
-    const version = typeof window !== 'undefined' ? localStorage.getItem(this.STORAGE_VERSION_KEY) : null;
-    // Réamorce aussi si la liste est vide (ex. donnée corrompue/vidée) même si
-    // la version est à jour : un front sans structures de démonstration est
-    // impossible à prévisualiser/expliquer.
-    if (version !== this.CURRENT_VERSION || this.structures().length === 0) {
-      this.seedStructures();
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(this.STORAGE_VERSION_KEY, this.CURRENT_VERSION);
-      }
-    }
+  constructor() {
+    this.load();
   }
 
-  private loadStructures(): Structure[] {
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    }
-    return [];
+  /** Recharge la liste des structures depuis le backend (GET /api/organizations). */
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.http.get<{ data: any[] }>(`${environment.apiUrl}/organizations`).pipe(
+      map(res => res.data.map(o => this.mapOrganization(o))),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, 'de charger les structures'));
+        return of<Structure[]>([]);
+      })
+    ).subscribe(list => {
+      this.structures.set(list);
+      this.loading.set(false);
+    });
   }
 
-  private saveStructures(structures: Structure[]): void {
-    this.structures.set(structures);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(structures));
-    }
-  }
-
-  private seedStructures(): void {
-    // Structures de démonstration avec administrateurs associés
-    const now = new Date().toISOString();
-    const structures: Structure[] = [
-      {
-        id: 'STR-001',
-        nom: 'Alioth Systems',
-        code: 'ALIOTH',
-        description: 'Structure principale de gestion des équipements solaires.',
-        email: 'contact@alioth-system.com',
-        telephone: '+226 25 40 12 34',
-        adresse: 'Zone industrielle Kossodo, Ouagadougou',
-        ville: 'Ouagadougou',
-        pays: 'Burkina Faso',
-        statut: 'ACTIVE',
-        dateCreation: '2024-03-20T10:00:00.000Z',
-        dateModification: now,
-        adminNom: 'Admin Alioth',
-        adminEmail: 'admin@alioth-system.com',
-        adminTelephone: '+226 70 98 76 54'
-      },
-      {
-        id: 'STR-002',
-        nom: 'Orange Énergie',
-        code: 'ORANGE',
-        description: 'Structure de distribution d\'énergie solaire.',
-        email: 'contact@orange-energie.com',
-        telephone: '+226 25 30 56 78',
-        adresse: 'Avenue Kwame Nkrumah, Ouagadougou',
-        ville: 'Ouagadougou',
-        pays: 'Burkina Faso',
-        statut: 'ACTIVE',
-        dateCreation: '2024-01-15T10:00:00.000Z',
-        dateModification: now,
-        adminNom: 'Admin Orange',
-        adminEmail: 'admin@orange-energie.com',
-        adminTelephone: '+226 70 12 34 56'
-      },
-      {
-        id: 'STR-003',
-        nom: 'Bobo Services',
-        code: 'BOBO',
-        description: 'Structure de maintenance des équipements miniers.',
-        email: 'contact@bobo-services.com',
-        telephone: '+226 20 97 11 22',
-        adresse: 'Zone industrielle, Bobo-Dioulasso',
-        ville: 'Bobo-Dioulasso',
-        pays: 'Burkina Faso',
-        statut: 'INACTIVE',
-        dateCreation: '2024-06-10T10:00:00.000Z',
-        dateModification: now,
-        adminNom: 'M. Sanogo',
-        adminEmail: 'sanogo@bobo-services.com',
-        adminTelephone: '+226 76 54 32 10'
-      }
-    ];
-    this.saveStructures(structures);
+  private mapOrganization(raw: any): Structure {
+    const admin = (raw.users ?? []).find((u: any) => u.role === 'admin');
+    return {
+      id: String(raw.id),
+      nom: raw.name,
+      code: raw.code ?? '',
+      description: raw.description ?? '',
+      email: raw.email ?? '',
+      telephone: raw.phone ?? '',
+      adresse: raw.address ?? '',
+      ville: raw.city ?? '',
+      pays: raw.country ?? '',
+      statut: raw.status === 'inactive' ? 'INACTIVE' : 'ACTIVE',
+      dateCreation: raw.created_at ?? '',
+      dateModification: raw.updated_at ?? '',
+      adminNom: admin?.name,
+      adminEmail: admin?.email,
+      adminTelephone: admin?.phone
+    };
   }
 
   getAllStructures(): Structure[] {
     return this.structures();
   }
 
-  countUsers(): { total: number; actifs: number } {
-    if (typeof window !== 'undefined') {
-      const userKey = 'shango_users';
-      const raw = localStorage.getItem(userKey);
-      const users = raw ? JSON.parse(raw) : [];
-      const actifs = users.filter((u: any) => u.role === 'ADMIN_STRUCTURE' || u.role === 'USER').length;
-      return { total: users.length, actifs };
-    }
-    return { total: 0, actifs: 0 };
+  getStructure(id: string): Structure | undefined {
+    return this.structures().find(s => s.id === id);
   }
 
   getStats(): StructureStats {
     const structures = this.structures();
     const actives = structures.filter(s => s.statut === 'ACTIVE').length;
-    const users = this.countUsers();
     return {
       total: structures.length,
       actives,
       inactives: structures.length - actives,
-      totalUtilisateurs: users.total,
-      utilisateursActifs: users.actifs
+      // Comptage global des utilisateurs : à dériver de UsersService côté appelant
+      // (cette valeur n'est pas recalculée ici pour éviter une dépendance circulaire).
+      totalUtilisateurs: 0,
+      utilisateursActifs: 0
     };
   }
 
-  getStructure(id: string): Structure | undefined {
-    return this.structures().find(s => s.id === id);
-  }
-
-  createStructure(structure: Omit<Structure, 'id' | 'dateCreation' | 'dateModification'>): Structure {
-    const now = new Date().toISOString();
-    const newStructure: Structure = {
-      ...structure,
-      id: this.generateId(),
-      dateCreation: now,
-      dateModification: now
+  /**
+   * Crée une structure puis, si les informations admin sont renseignées, son
+   * administrateur (POST /api/organizations, puis POST /api/users role=admin).
+   * Si la création de l'admin échoue, la structure reste créée : l'erreur est
+   * exposée via `error` sans annuler l'organisation déjà créée côté backend.
+   */
+  createStructure(data: StructureInput): Observable<Structure | null> {
+    this.error.set(null);
+    const payload = {
+      name: data.nom,
+      code: data.code || undefined,
+      description: data.description,
+      email: data.email || undefined,
+      phone: data.telephone || undefined,
+      address: data.adresse,
+      city: data.ville || undefined,
+      country: data.pays || undefined,
+      status: data.statut === 'INACTIVE' ? 'inactive' : 'active'
     };
-    this.saveStructures([...this.structures(), newStructure]);
-    // Amorce 2 alertes de démonstration pour que l'admin de cette nouvelle
-    // structure puisse tester l'affectation / la planification dès sa 1ère connexion.
-    this.maintenanceService.seedAlertsForStructure(newStructure.id, newStructure.code || newStructure.nom);
-    return newStructure;
+
+    return this.http.post<{ data: any }>(`${environment.apiUrl}/organizations`, payload).pipe(
+      switchMap(orgRes => {
+        const org = orgRes.data;
+        if (!data.adminEmail || !data.adminMotDePasse) {
+          this.load();
+          return of(this.mapOrganization(org));
+        }
+        return this.http.post(`${environment.apiUrl}/users`, {
+          name: data.adminNom,
+          email: data.adminEmail,
+          password: data.adminMotDePasse,
+          role: 'admin',
+          organization_id: org.id,
+          phone: data.adminTelephone,
+          status: 'actif'
+        }).pipe(
+          map(() => {
+            this.load();
+            return this.mapOrganization(org);
+          }),
+          catchError((error: HttpErrorResponse) => {
+            this.load();
+            this.error.set(
+              `Structure créée, mais échec de création de l'administrateur : ${extractHttpErrorMessage(error, "de créer l'administrateur")}`
+            );
+            return of(this.mapOrganization(org));
+          })
+        );
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, 'de créer la structure'));
+        return of(null);
+      })
+    );
   }
 
-  updateStructure(id: string, changes: Partial<Structure>): Structure | undefined {
-    const structures = this.structures();
-    const index = structures.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    const updated: Structure = {
-      ...structures[index],
-      ...changes,
-      id,
-      dateModification: new Date().toISOString()
-    };
-    const newList = [...structures];
-    newList[index] = updated;
-    this.saveStructures(newList);
-    return updated;
+  /**
+   * Modifie une structure et, si des informations admin sont fournies, son
+   * administrateur associé (créé s'il n'existait pas encore, sinon mis à jour).
+   */
+  updateStructure(id: string, changes: Partial<StructureInput>): Observable<Structure | null> {
+    this.error.set(null);
+    const payload: Record<string, unknown> = {};
+    if (changes.nom !== undefined) payload['name'] = changes.nom;
+    if (changes.code !== undefined) payload['code'] = changes.code || null;
+    if (changes.description !== undefined) payload['description'] = changes.description;
+    if (changes.email !== undefined) payload['email'] = changes.email || null;
+    if (changes.telephone !== undefined) payload['phone'] = changes.telephone || null;
+    if (changes.adresse !== undefined) payload['address'] = changes.adresse;
+    if (changes.ville !== undefined) payload['city'] = changes.ville || null;
+    if (changes.pays !== undefined) payload['country'] = changes.pays || null;
+    if (changes.statut !== undefined) payload['status'] = changes.statut === 'INACTIVE' ? 'inactive' : 'active';
+
+    return this.http.put<{ data: any }>(`${environment.apiUrl}/organizations/${id}`, payload).pipe(
+      // Ré-interroge l'organisation avec ses utilisateurs (PUT ne les renvoie pas)
+      // pour retrouver l'admin existant sans risquer d'en créer un doublon.
+      switchMap(() => this.http.get<{ data: any }>(`${environment.apiUrl}/organizations/${id}`)),
+      switchMap(orgRes => {
+        const org = orgRes.data;
+        const wantsAdminChange = !!(changes.adminNom || changes.adminEmail || changes.adminMotDePasse);
+        if (!wantsAdminChange) {
+          this.load();
+          return of(this.mapOrganization(org));
+        }
+
+        const existingAdmin = (org.users ?? []).find((u: any) => u.role === 'admin');
+        if (existingAdmin) {
+          const adminBody: Record<string, unknown> = {};
+          if (changes.adminNom) adminBody['name'] = changes.adminNom;
+          if (changes.adminEmail) adminBody['email'] = changes.adminEmail;
+          if (changes.adminMotDePasse) adminBody['password'] = changes.adminMotDePasse;
+          if (changes.adminTelephone !== undefined) adminBody['phone'] = changes.adminTelephone;
+          return this.http.put(`${environment.apiUrl}/users/${existingAdmin.id}`, adminBody).pipe(
+            map(() => { this.load(); return this.mapOrganization(org); }),
+            catchError((error: HttpErrorResponse) => {
+              this.load();
+              this.error.set(`Structure modifiée, mais échec de mise à jour de l'administrateur : ${extractHttpErrorMessage(error, "de modifier l'administrateur")}`);
+              return of(this.mapOrganization(org));
+            })
+          );
+        }
+
+        if (changes.adminNom && changes.adminEmail && changes.adminMotDePasse) {
+          return this.http.post(`${environment.apiUrl}/users`, {
+            name: changes.adminNom,
+            email: changes.adminEmail,
+            password: changes.adminMotDePasse,
+            role: 'admin',
+            organization_id: org.id,
+            phone: changes.adminTelephone,
+            status: 'actif'
+          }).pipe(
+            map(() => { this.load(); return this.mapOrganization(org); }),
+            catchError((error: HttpErrorResponse) => {
+              this.load();
+              this.error.set(`Structure modifiée, mais échec de création de l'administrateur : ${extractHttpErrorMessage(error, "de créer l'administrateur")}`);
+              return of(this.mapOrganization(org));
+            })
+          );
+        }
+
+        this.load();
+        return of(this.mapOrganization(org));
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.error.set(extractHttpErrorMessage(error, 'de modifier la structure'));
+        return of(null);
+      })
+    );
   }
 
-  toggleStatus(id: string): Structure | undefined {
-    const structure = this.getStructure(id);
-    if (!structure) return undefined;
-    const newStatus = structure.statut === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  toggleStatus(id: string): Observable<Structure | null> {
+    const current = this.getStructure(id);
+    if (!current) return of(null);
+    const newStatus: StructureStatus = current.statut === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     return this.updateStructure(id, { statut: newStatus });
-  }
-
-  private generateId(): string {
-    const random = Math.floor(1000 + Math.random() * 9000);
-    return `STR-${random}`;
   }
 }

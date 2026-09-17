@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, effect, signal } from '@angular/core';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Structure } from '../../models/structure.model';
@@ -22,16 +22,22 @@ export class StructureDetailComponent implements OnInit {
     private structureService: StructureService,
     private route: ActivatedRoute,
     private router: Router
-  ) {}
+  ) {
+    // Réagit au chargement (async) de la liste des structures : si le
+    // composant est monté avant la fin du premier GET /api/organizations
+    // (ex. accès direct à l'URL), la fiche se remplit dès que les données
+    // arrivent au lieu de rester vide.
+    effect(() => {
+      const s = this.structureService.structures().find(item => item.id === this.structureId);
+      if (s) this.structure.set(s);
+    });
+  }
 
   ngOnInit(): void {
     this.structureId = this.route.snapshot.paramMap.get('id') || '';
-    this.loadStructure();
-  }
-
-  private loadStructure(): void {
     const s = this.structureService.getStructure(this.structureId);
-    this.structure.set(s || null);
+    if (s) this.structure.set(s);
+    this.structureService.load();
   }
 
   protected confirmToggleStatus(): void {
@@ -45,14 +51,18 @@ export class StructureDetailComponent implements OnInit {
   protected confirmToggle(): void {
     const s = this.structure();
     if (!s) return;
-    const updated = this.structureService.toggleStatus(s.id);
-    if (updated) {
-      const action = updated.statut === 'ACTIVE' ? 'activée' : 'désactivée';
-      this.structure.set(updated);
-      this.message.set(`La structure « ${updated.nom} » a été ${action} avec succès.`);
-      this.messageType.set('success');
-      setTimeout(() => this.message.set(''), 4000);
-    }
+    this.structureService.toggleStatus(s.id).subscribe(updated => {
+      if (updated) {
+        const action = updated.statut === 'ACTIVE' ? 'activée' : 'désactivée';
+        this.structure.set(updated);
+        this.message.set(`La structure « ${updated.nom} » a été ${action} avec succès.`);
+        this.messageType.set('success');
+        setTimeout(() => this.message.set(''), 4000);
+      } else {
+        this.message.set(this.structureService.error() || 'Une erreur est survenue.');
+        this.messageType.set('error');
+      }
+    });
     this.cancelModal();
   }
 }
