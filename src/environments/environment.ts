@@ -11,5 +11,5 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://levy-cite-platforms-tropical.trycloudflare.com/api'
+  apiUrl: 'https://learning-border-howto-privileges.trycloudflare.com/api'
 };
