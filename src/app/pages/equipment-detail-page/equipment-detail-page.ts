@@ -2733,7 +2733,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
   get telemetrieHumiditeDisplay(): string {
     const v = this.latestTelemetrie()?.humidite;
-    return v !== null && v !== undefined ? `${Number(v).toFixed(0)} %` : '—';
+    return v !== null && v !== undefined ? `${Number(v).toFixed(1)} %` : '—';
   }
 
   get batteryCapacityDisplay(): string {

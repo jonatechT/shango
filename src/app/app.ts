@@ -1,15 +1,27 @@
 // Deployed to GitHub Pages at https://jonatecht.github.io/shango/
 import { Component, signal } from '@angular/core';
 import { NgIf, DatePipe } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { RouterOutlet, RouterLink, NavigationEnd } from '@angular/router';
 import { Router } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, interval } from 'rxjs';
 import { AuthService } from './auth/auth.service';
 import { User } from './auth/auth.service';
 import { StructureService } from './superadmin/services/structure.service';
 import { MaintenanceService, NotificationItem, MaintenanceItem } from './services/maintenance.service';
 import { EquipmentService, Equipment } from './services/equipment.service';
 import { ThemeService } from './services/theme.service';
+import { environment } from '../environments/environment';
+
+/** Alerte réelle reçue du backend (bridge IoT) — GET /api/alertes. Sous-ensemble utilisé par la cloche du header. */
+interface HeaderRealAlerte {
+  id: number;
+  type_alerte: string;
+  gravite: 'FAIBLE' | 'MOYENNE' | 'ELEVEE';
+  statut: string;
+  horodatage: string;
+  equipement?: { reference?: string; nom?: string } | null;
+}
 
 interface MenuItem {
   label: string;
@@ -60,13 +72,18 @@ export class App {
     return typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : '';
   }
 
+  /** Alertes IoT réelles (statut "nouvelle") — GET /api/alertes, sondées en continu. */
+  protected readonly realAlerts = signal<HeaderRealAlerte[]>([]);
+  private static readonly REAL_ALERTS_POLL_MS = 8000;
+
   constructor(
     private authService: AuthService,
     private router: Router,
     private structureService: StructureService,
     private maintenanceService: MaintenanceService,
     private equipmentService: EquipmentService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private http: HttpClient
   ) {
     this.isSidebarCollapsed = this.loadSidebarState();
     this.themeService.init();
@@ -74,6 +91,43 @@ export class App {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.activeUrl.set(e.urlAfterRedirects.split('?')[0].replace(/\/$/, ''));
     });
+    // La cloche d'alertes doit refléter les vraies alertes IoT (pas seulement
+    // les alertes mockées du module Maintenance) : sondage en continu tant
+    // que l'utilisateur est connecté.
+    this.refreshRealAlerts();
+    interval(App.REAL_ALERTS_POLL_MS).subscribe(() => this.refreshRealAlerts());
+  }
+
+  private refreshRealAlerts(): void {
+    if (!this.authService.isLoggedIn()) return;
+    this.http.get<{ data: HeaderRealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
+      next: res => {
+        this.realAlerts.set((res.data || []).filter(a => a.statut === 'nouvelle'));
+      },
+      error: () => { /* silencieux : ne doit pas perturber le reste du header */ }
+    });
+  }
+
+  protected typeAlerteLabel(type: string): string {
+    const labels: Record<string, string> = {
+      CHOC: 'Choc',
+      SURCHAUFFE: 'Surchauffe',
+      TENSION_FAIBLE: 'Tension faible',
+      MOUVEMENT: 'Mouvement',
+      BOITIER_OUVERT: 'Boîtier ouvert'
+    };
+    return labels[type] || type;
+  }
+
+  /** Ouvre la fiche de l'équipement concerné par une alerte réelle. */
+  protected openRealAlert(alerte: HeaderRealAlerte): void {
+    this.closeAlertsPanel();
+    const ref = alerte.equipement?.reference;
+    if (ref) {
+      this.router.navigate(['/equipements', ref], { queryParams: { source: 'alerts' } });
+    } else {
+      this.router.navigate(['/alerts']);
+    }
   }
 
   /** Navigation impérative robuste (contourne les ratés de routerLink en zoneless + event replay) */
@@ -214,7 +268,7 @@ export class App {
   }
 
   protected get openAlertsCount(): number {
-    return this.openAlerts.length;
+    return this.openAlerts.length + this.realAlerts().length;
   }
 
   protected toggleAlertsPanel(): void {

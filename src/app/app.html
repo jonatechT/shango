@@ -286,13 +286,26 @@
       </button>
     </div>
     <div class="alerts-bell-panel-body">
-      @if (openAlerts.length === 0) {
+      @if (openAlerts.length === 0 && realAlerts().length === 0) {
         <div class="alerts-bell-empty">
           <i class="fa-solid fa-circle-check"></i>
           <span class="alerts-bell-empty-title">Tout est sous contrôle</span>
           <span class="alerts-bell-empty-subtitle">Aucune alerte en attente pour l'instant.</span>
         </div>
       } @else {
+        @for (alerte of realAlerts(); track alerte.id) {
+          <div class="alert-bell-item" (click)="openRealAlert(alerte)">
+            <div class="alert-bell-icon" [class.critique]="alerte.gravite === 'ELEVEE'">
+              <i class="fa-solid fa-satellite-dish"></i>
+            </div>
+            <div class="alert-bell-content">
+              <span class="alert-bell-message">{{ typeAlerteLabel(alerte.type_alerte) }} — {{ alerte.equipement?.nom || alerte.equipement?.reference }}</span>
+              <span class="alert-bell-time">
+                <i class="fa-solid fa-tower-broadcast"></i> IoT en direct
+              </span>
+            </div>
+          </div>
+        }
         @for (item of openAlerts; track item.id) {
           <div class="alert-bell-item" (click)="openAlert(item)">
             <div class="alert-bell-icon" [class.critique]="item.severite === 'Critique'">
