@@ -117,6 +117,23 @@ export interface BatteryHistoryEntry {
 }
 
 /**
+ * Dernière télémétrie reçue d'un boîtier IoT SHANGO, fournie par le backend :
+ *   GET /api/equipements/{id}/telemetries (le plus récent, trié par horodatage)
+ *
+ * Distinct du diagnostic batterie (IA, lancé manuellement) : la télémétrie
+ * est envoyée en continu par le bridge IoT sans action de l'utilisateur.
+ */
+export interface TelemetrieEntry {
+  tension: number | null;
+  courant: number | null;
+  temperature: number | null;
+  etat_kit: string | null;
+  statut_paiement: string | null;
+  signal_gsm: number | null;
+  horodatage: string;
+}
+
+/**
  * Point d'historique de localisation fourni par le backend :
  *   GET /api/equipements/{id}/localisations
  *
@@ -700,6 +717,32 @@ export class EquipmentService {
           }
           return of([]);
         })
+      );
+  }
+
+  /**
+   * Dernière télémétrie reçue pour cet équipement — GET /api/equipements/{backendId}/telemetries.
+   * `backendId` est la clé primaire backend (`equipements.id`), pas la référence "SH-xxx".
+   * Retourne `null` si aucune télémétrie n'a encore été reçue (404, liste vide, ou erreur).
+   */
+  getLatestTelemetrie(backendId: number): Observable<TelemetrieEntry | null> {
+    return this.http
+      .get<{ data: any[] }>(`${environment.apiUrl}/equipements/${backendId}/telemetries`)
+      .pipe(
+        map(res => {
+          const latest = Array.isArray(res.data) ? res.data[0] : undefined;
+          if (!latest) return null;
+          return {
+            tension: latest.tension != null ? Number(latest.tension) : null,
+            courant: latest.courant != null ? Number(latest.courant) : null,
+            temperature: latest.temperature != null ? Number(latest.temperature) : null,
+            etat_kit: latest.etat_kit ?? null,
+            statut_paiement: latest.statut_paiement ?? null,
+            signal_gsm: latest.signal_gsm != null ? Number(latest.signal_gsm) : null,
+            horodatage: latest.horodatage
+          };
+        }),
+        catchError(() => of(null))
       );
   }
 

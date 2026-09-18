@@ -8,7 +8,8 @@ import {
   EquipmentDiagnostic,
   BatteryCurrentDiagnostic,
   BatteryHistoryEntry,
-  LocationHistoryEntry
+  LocationHistoryEntry,
+  TelemetrieEntry
 } from '../../services/equipment.service';
 import { MaintenanceItem, MaintenanceService } from '../../services/maintenance.service';
 import { UsersService } from '../../services/users.service';
@@ -214,14 +215,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-blue"><i class="fa-solid fa-microchip"></i></span>
               <span class="eqd-card-label">Courant</span>
             </div>
-            @if (batteryDiagnostic()?.current_a !== null && batteryDiagnostic()?.current_a !== undefined) {
-              <div class="eqd-card-value">{{ batteryCurrentDisplay }}</div>
-              <div class="eqd-card-meta">Mesure du diagnostic batterie</div>
+            @if (latestTelemetrie()?.courant !== null && latestTelemetrie()?.courant !== undefined) {
+              <div class="eqd-card-value">{{ telemetrieCourantDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
@@ -250,13 +251,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-cyan"><i class="fa-solid fa-temperature-half"></i></span>
               <span class="eqd-card-label">Température</span>
             </div>
-            @if (equipment.temperature !== null) {
-              <div class="eqd-card-value">{{ equipment.temperature }} °C</div>
+            @if (latestTelemetrie()?.temperature !== null && latestTelemetrie()?.temperature !== undefined) {
+              <div class="eqd-card-value">{{ telemetrieTemperatureDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Aucun capteur disponible</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
@@ -267,13 +269,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-green"><i class="fa-solid fa-bolt"></i></span>
               <span class="eqd-card-label">Tension</span>
             </div>
-            @if (equipment.tension !== null) {
-              <div class="eqd-card-value">{{ equipment.tension }} V</div>
+            @if (latestTelemetrie()?.tension !== null && latestTelemetrie()?.tension !== undefined) {
+              <div class="eqd-card-value">{{ telemetrieTensionDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Aucun capteur disponible</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
@@ -302,9 +305,9 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-file-invoice-dollar"></i></span>
               <span class="eqd-card-label">Statut paiement</span>
             </div>
-            @if (batteryDiagnostic()?.statut_paiement) {
-              <div [class]="'eqd-card-value ' + paiementStatusClass">{{ batteryPaiementDisplay }}</div>
-              <div class="eqd-card-meta">Fourni par le backend</div>
+            @if (latestTelemetrie()?.statut_paiement) {
+              <div [class]="'eqd-card-value ' + paiementStatusClass">{{ telemetriePaiementDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
@@ -2167,6 +2170,8 @@ export class EquipmentDetailPageComponent implements OnInit {
   readonly batteryLoading = signal(false);
   readonly batteryHistoryLoading = signal(false);
   readonly batteryError = signal<string | null>(null);
+  /** Dernière télémétrie reçue du boîtier IoT — GET /api/equipements/{backendId}/telemetries. */
+  readonly latestTelemetrie = signal<TelemetrieEntry | null>(null);
   /** Historique de localisation (GET /api/equipements/{id}/localisations). */
   readonly locationHistory = signal<LocationHistoryEntry[]>([]);
   readonly locationHistoryLoading = signal(false);
@@ -2211,6 +2216,7 @@ export class EquipmentDetailPageComponent implements OnInit {
         this.equipment = eq;
         this.diagnostic = this.equipmentService.getDiagnostic(eq);
         this.checkAlertStatus();
+        this.loadLatestTelemetrie(eq);
       }
       // Rafraîchit depuis le vrai backend (utile en cas d'accès direct à
       // l'URL avant que le parc réel ait été chargé, ou si l'équipement a
@@ -2221,6 +2227,7 @@ export class EquipmentDetailPageComponent implements OnInit {
           this.equipment = refreshed;
           this.diagnostic = this.equipmentService.getDiagnostic(refreshed);
           this.checkAlertStatus();
+          this.loadLatestTelemetrie(refreshed);
         }
       });
       // Historique batterie : consommation des endpoints backend.
@@ -2230,6 +2237,14 @@ export class EquipmentDetailPageComponent implements OnInit {
       this.loadBatteryHistory(id);
       this.loadLocationHistory(id);
     }
+  }
+
+  /** Dernière télémétrie IoT — GET /api/equipements/{backendId}/telemetries. */
+  private loadLatestTelemetrie(equipment: Equipment): void {
+    if (!equipment.backendId) return;
+    this.equipmentService.getLatestTelemetrie(equipment.backendId).subscribe(entry => {
+      this.latestTelemetrie.set(entry);
+    });
   }
 
   /** Historique de localisation — GET /api/equipements/{id}/localisations. */
@@ -2642,11 +2657,31 @@ export class EquipmentDetailPageComponent implements OnInit {
 
   /** Couleur du statut de paiement (vert = à jour, rouge = impayé, ambre = en retard). */
   get paiementStatusClass(): string {
-    const statut = (this.batteryDiagnostic()?.statut_paiement ?? '').toLowerCase();
-    if (statut.includes('impay')) return 'eqd-bdiag-measure-value--danger';
+    const statut = (this.latestTelemetrie()?.statut_paiement ?? '').toLowerCase();
+    if (statut.includes('impay') || statut === 'bloque') return 'eqd-bdiag-measure-value--danger';
     if (statut.includes('retard')) return 'eqd-bdiag-measure-value--warning';
-    if (statut.includes('pay')) return 'eqd-bdiag-measure-value--success';
+    if (statut === 'ok' || statut.includes('pay')) return 'eqd-bdiag-measure-value--success';
     return '';
+  }
+
+  /* ===== Cartes vue d'ensemble alimentées par la dernière télémétrie IoT ===== */
+  get telemetrieCourantDisplay(): string {
+    const v = this.latestTelemetrie()?.courant;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(2)} A` : '—';
+  }
+
+  get telemetrieTemperatureDisplay(): string {
+    const v = this.latestTelemetrie()?.temperature;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(1)} °C` : '—';
+  }
+
+  get telemetrieTensionDisplay(): string {
+    const v = this.latestTelemetrie()?.tension;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(2)} V` : '—';
+  }
+
+  get telemetriePaiementDisplay(): string {
+    return this.latestTelemetrie()?.statut_paiement ?? '—';
   }
 
   get batteryCapacityDisplay(): string {

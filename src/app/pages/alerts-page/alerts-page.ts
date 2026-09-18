@@ -1,4 +1,6 @@
-﻿import { Component } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { BasePageComponent } from '../base-page/base-page';
@@ -8,11 +10,24 @@ import { UsersService } from '../../services/users.service';
 import { AuthService, User } from '../../auth/auth.service';
 import { SettingsService } from '../../services/settings.service';
 import { StructureService } from '../../superadmin/services/structure.service';
+import { environment } from '../../../environments/environment';
+
+/** Alerte réelle reçue du backend (bridge IoT) — GET /api/alertes. */
+interface RealAlerte {
+  id: number;
+  device_id: string;
+  type_alerte: string;
+  gravite: 'FAIBLE' | 'MOYENNE' | 'ELEVEE';
+  statut: string;
+  valeur: number | null;
+  horodatage: string;
+  equipement?: { nom?: string; reference?: string } | null;
+}
 
 @Component({
   selector: 'app-alerts-page',
   standalone: true,
-  imports: [BasePageComponent, FormsModule],
+  imports: [BasePageComponent, FormsModule, DatePipe],
   template: `
     <app-base-page title="Alertes" subtitle="Alertes non prises en charge sur votre parc." icon="fa-solid fa-triangle-exclamation">
       <div class="alerts-content">
@@ -39,6 +54,46 @@ import { StructureService } from '../../superadmin/services/structure.service';
             </div>
             <i class="fa-solid fa-circle-exclamation stat-icon stat-icon--amber"></i>
           </div>
+        </div>
+
+        <!-- Alertes IoT reçues en direct (backend réel — GET /api/alertes) -->
+        <div class="realtime-card">
+          <div class="realtime-head">
+            <span class="realtime-title"><i class="fa-solid fa-satellite-dish"></i> Alertes IoT reçues en direct</span>
+            <button type="button" class="realtime-refresh" (click)="loadRealAlertes()" [disabled]="realAlertesLoading">
+              <i class="fa-solid fa-rotate" [class.fa-spin]="realAlertesLoading"></i> Rafraîchir
+            </button>
+          </div>
+          @if (realAlertesError) {
+            <p class="realtime-error">{{ realAlertesError }}</p>
+          } @else if (realAlertes.length === 0) {
+            <p class="realtime-empty">Aucune alerte reçue d'un boîtier IoT pour l'instant.</p>
+          } @else {
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Boîtier</th>
+                    <th>Type</th>
+                    <th>Gravité</th>
+                    <th>Valeur</th>
+                    <th>Reçue le</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (a of realAlertes; track a.id) {
+                    <tr>
+                      <td>{{ a.equipement?.nom || a.equipement?.reference || a.device_id }}</td>
+                      <td>{{ typeAlerteLabel(a.type_alerte) }}</td>
+                      <td><span [class]="'severite-badge ' + graviteBadgeClass(a.gravite)">{{ graviteLabel(a.gravite) }}</span></td>
+                      <td>{{ a.valeur !== null ? a.valeur : '—' }}</td>
+                      <td>{{ a.horodatage | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </div>
 
         @if (items.length === 0) {
@@ -311,6 +366,18 @@ import { StructureService } from '../../superadmin/services/structure.service';
       .alerts-search { min-width: 0; }
     }
 
+    /* ===== Alertes IoT en direct ===== */
+    .realtime-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .realtime-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .realtime-title { font-size: 13px; font-weight: 700; color: #0F172A; display: inline-flex; align-items: center; gap: 8px; }
+    .realtime-title i { color: #2563EB; }
+    .realtime-refresh { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #F8FAFC; color: #334155; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+    .realtime-refresh:hover:not(:disabled) { background: #EFF6FF; border-color: #BFDBFE; color: #2563EB; }
+    .realtime-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+    .realtime-empty, .realtime-error { font-size: 12.5px; color: #64748B; margin: 0; }
+    .realtime-error { color: #DC2626; }
+    .severite-badge-faible { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+
     .table-card { background: transparent; border: none; padding: 0; }
     .table-wrapper { overflow-x: auto; }
     .data-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 13px; }
@@ -389,7 +456,12 @@ import { StructureService } from '../../superadmin/services/structure.service';
     .affect-btn-confirm:disabled { background: #CBD5E1; cursor: not-allowed; }
   `]
 })
-export class AlertsPageComponent {
+export class AlertsPageComponent implements OnInit {
+  /** Alertes réelles reçues du backend (bridge IoT) — GET /api/alertes. */
+  realAlertes: RealAlerte[] = [];
+  realAlertesLoading = false;
+  realAlertesError: string | null = null;
+
   showAffectModal = false;
   selectedItem: MaintenanceItem | null = null;
   selectedTechnicienIds: number[] = [];
@@ -416,8 +488,51 @@ export class AlertsPageComponent {
     private authService: AuthService,
     private settingsService: SettingsService,
     private structureService: StructureService,
+    private http: HttpClient,
     private router: Router
   ) {}
+
+  ngOnInit(): void {
+    this.loadRealAlertes();
+  }
+
+  /** Charge les alertes réellement reçues des boîtiers IoT — GET /api/alertes. */
+  loadRealAlertes(): void {
+    this.realAlertesLoading = true;
+    this.realAlertesError = null;
+    this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
+      next: res => {
+        this.realAlertes = res.data || [];
+        this.realAlertesLoading = false;
+      },
+      error: () => {
+        this.realAlertesError = 'Impossible de récupérer les alertes IoT (backend indisponible).';
+        this.realAlertesLoading = false;
+      }
+    });
+  }
+
+  typeAlerteLabel(type: string): string {
+    const labels: Record<string, string> = {
+      CHOC: 'Choc',
+      SURCHAUFFE: 'Surchauffe',
+      TENSION_FAIBLE: 'Tension faible',
+      MOUVEMENT: 'Mouvement',
+      BOITIER_OUVERT: 'Boîtier ouvert'
+    };
+    return labels[type] || type;
+  }
+
+  graviteLabel(gravite: string): string {
+    const labels: Record<string, string> = { FAIBLE: 'Faible', MOYENNE: 'Moyenne', ELEVEE: 'Élevée' };
+    return labels[gravite] || gravite;
+  }
+
+  graviteBadgeClass(gravite: string): string {
+    if (gravite === 'ELEVEE') return 'severite-critique';
+    if (gravite === 'MOYENNE') return 'severite-avertissement';
+    return 'severite-badge-faible';
+  }
 
   get items(): MaintenanceItem[] {
     const sid = this.authService.getUser()?.structureId || null;
