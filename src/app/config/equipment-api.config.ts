@@ -16,5 +16,5 @@
  */
 export const EQUIPMENT_API_CONFIG = {
   /** true = données simulées (pas de backend requis) ; false = backend réel. */
-  useMock: true
+  useMock: false
 } as const;

@@ -93,16 +93,43 @@ export class App {
     });
     // La cloche d'alertes doit refléter les vraies alertes IoT (pas seulement
     // les alertes mockées du module Maintenance) : sondage en continu tant
-    // que l'utilisateur est connecté.
-    this.refreshRealAlerts();
-    interval(App.REAL_ALERTS_POLL_MS).subscribe(() => this.refreshRealAlerts());
+    // que l'utilisateur est connecté. On capture d'abord une référence (sans
+    // rien afficher) pour ne montrer que les alertes reçues après l'ouverture
+    // de la page — sinon un rechargement affiche immédiatement de vieilles
+    // alertes, donnant l'impression d'un flux figé/mocké.
+    this.captureRealAlertsBaseline();
+  }
+
+  /** Plus grand `id` d'alerte déjà connu à l'ouverture de l'app (null tant que non capturé). */
+  private baselineMaxAlertId: number | null = null;
+
+  private captureRealAlertsBaseline(): void {
+    if (!this.authService.isLoggedIn()) {
+      // Pas encore connecté (page de login) : réessaie au prochain tick.
+      setTimeout(() => this.captureRealAlertsBaseline(), App.REAL_ALERTS_POLL_MS);
+      return;
+    }
+    this.http.get<{ data: HeaderRealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
+      next: res => {
+        const data = res.data || [];
+        this.baselineMaxAlertId = data.length > 0 ? Math.max(...data.map(a => a.id)) : 0;
+        interval(App.REAL_ALERTS_POLL_MS).subscribe(() => this.refreshRealAlerts());
+      },
+      error: () => {
+        this.baselineMaxAlertId = 0;
+        interval(App.REAL_ALERTS_POLL_MS).subscribe(() => this.refreshRealAlerts());
+      }
+    });
   }
 
   private refreshRealAlerts(): void {
-    if (!this.authService.isLoggedIn()) return;
+    if (!this.authService.isLoggedIn() || this.baselineMaxAlertId === null) return;
     this.http.get<{ data: HeaderRealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
-        this.realAlerts.set((res.data || []).filter(a => a.statut === 'nouvelle'));
+        const data = res.data || [];
+        this.realAlerts.set(
+          data.filter(a => a.statut === 'nouvelle' && a.id > this.baselineMaxAlertId!)
+        );
       },
       error: () => { /* silencieux : ne doit pas perturber le reste du header */ }
     });

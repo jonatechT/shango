@@ -656,6 +656,7 @@ body.dark-mode app-equipment-detail-page .eqd-card,
 body.dark-mode app-equipment-detail-page .eqd-diagnostic,
 body.dark-mode app-equipment-detail-page .eqd-battery-diag,
 body.dark-mode app-equipment-detail-page .eqd-loc-history,
+body.dark-mode app-equipment-detail-page .eqd-infos-generales,
 body.dark-mode app-equipment-detail-page .eqd-modal {
   background: #111827 !important;
   border: 1px solid #1F2937 !important;
@@ -691,7 +692,8 @@ body.dark-mode app-equipment-detail-page .eqd-bdiag-stat-value,
 body.dark-mode app-equipment-detail-page .eqd-bdiag-dur-value,
 body.dark-mode app-equipment-detail-page .eqd-bdiag-unavail-title,
 body.dark-mode app-equipment-detail-page .eqd-bdiag-measure-value,
-body.dark-mode app-equipment-detail-page .eqd-loc-place {
+body.dark-mode app-equipment-detail-page .eqd-loc-place,
+body.dark-mode app-equipment-detail-page .eqd-infos-value {
   color: #F1F5F9 !important;
 }
 
@@ -711,6 +713,7 @@ body.dark-mode app-equipment-detail-page .eqd-bdiag-unavail-text,
 body.dark-mode app-equipment-detail-page .eqd-bdiag-measure-key,
 body.dark-mode app-equipment-detail-page .eqd-loc-period,
 body.dark-mode app-equipment-detail-page .eqd-value-empty,
+body.dark-mode app-equipment-detail-page .eqd-infos-key,
 body.dark-mode app-equipment-detail-page .eqd-badge-neutral {
   color: #94A3B8 !important;
 }
@@ -1589,6 +1592,33 @@ body.dark-mode app-alerts-page .empty-state {
 body.dark-mode app-alerts-page .stat-card--amber {
   background: rgba(217, 119, 6, 0.16) !important;
   border-color: rgba(217, 119, 6, 0.3) !important;
+}
+
+/* ===== Carte "Alertes IoT reçues en direct" — mode nuit ===== */
+body.dark-mode app-alerts-page .realtime-card {
+  background: #111827 !important;
+  border-color: #1F2937 !important;
+}
+body.dark-mode app-alerts-page .realtime-title {
+  color: #F1F5F9 !important;
+}
+body.dark-mode app-alerts-page .realtime-refresh {
+  background: #16243D !important;
+  border-color: #1F2937 !important;
+  color: #CBD5E1 !important;
+}
+body.dark-mode app-alerts-page .realtime-refresh:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.16) !important;
+  border-color: rgba(37, 99, 235, 0.4) !important;
+  color: #93C5FD !important;
+}
+body.dark-mode app-alerts-page .realtime-empty {
+  color: #94A3B8 !important;
+}
+body.dark-mode app-alerts-page .severite-badge-faible {
+  background: #16243D !important;
+  color: #94A3B8 !important;
+  border-color: #1F2937 !important;
 }
 
 /* ===== Onglets page Alertes (En cours / Historique) â€” mode nuit ===== */

@@ -97,12 +97,7 @@ interface RealAlerte {
           }
         </div>
 
-        @if (items.length === 0) {
-          <div class="empty-state">
-            <i class="fa-solid fa-circle-check empty-icon"></i>
-            <p>Aucune alerte en cours. Tout est sous contrôle.</p>
-          </div>
-        } @else {
+        @if (items.length > 0) {
           <!-- Barre de filtres -->
           <div class="alerts-filters">
             <div class="filter-pills">
@@ -495,9 +490,29 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
 
   private realAlertesPollingSubscription: Subscription | null = null;
   private static readonly ALERTES_POLL_MS = 10000;
+  /**
+   * Plus grand `id` d'alerte déjà connu au moment de l'ouverture de la page —
+   * seules les alertes plus récentes (id supérieur) sont affichées, pour ne
+   * pas donner l'impression d'un flux figé/mocké en rouvrant la page avec
+   * des alertes déjà anciennes toujours listées.
+   */
+  private baselineMaxAlertId: number | null = null;
 
   ngOnInit(): void {
-    this.loadRealAlertes();
+    this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
+      next: res => {
+        const data = res.data || [];
+        this.baselineMaxAlertId = data.length > 0 ? Math.max(...data.map(a => a.id)) : 0;
+        this.startRealAlertesPolling();
+      },
+      error: () => {
+        this.baselineMaxAlertId = 0;
+        this.startRealAlertesPolling();
+      }
+    });
+  }
+
+  private startRealAlertesPolling(): void {
     this.realAlertesPollingSubscription = interval(AlertsPageComponent.ALERTES_POLL_MS).subscribe(() => {
       this.loadRealAlertes(true);
     });
@@ -509,15 +524,19 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
 
   /**
    * Charge les alertes réellement reçues des boîtiers IoT — GET /api/alertes.
-   * `silent` évite de montrer le spinner lors du rafraîchissement automatique
-   * en arrière-plan (seul le clic manuel sur "Rafraîchir" l'affiche).
+   * Ne garde que celles reçues après l'ouverture de la page (voir
+   * `baselineMaxAlertId`). `silent` évite de montrer le spinner lors du
+   * rafraîchissement automatique en arrière-plan (seul le clic manuel sur
+   * "Rafraîchir" l'affiche).
    */
   loadRealAlertes(silent = false): void {
+    if (this.baselineMaxAlertId === null) return;
     if (!silent) this.realAlertesLoading = true;
     this.realAlertesError = null;
     this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
-        this.realAlertes = res.data || [];
+        const data = res.data || [];
+        this.realAlertes = data.filter(a => a.id > this.baselineMaxAlertId!);
         this.realAlertesLoading = false;
       },
       error: () => {
