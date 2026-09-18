@@ -2243,6 +2243,16 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   private telemetriePollingSubscription: Subscription | null = null;
   private static readonly TELEMETRIE_POLL_MS = 8000;
   /**
+   * Durée sans nouvelle télémétrie au-delà de laquelle on considère le
+   * boîtier injoignable et on repasse les cartes à « Donnée non disponible »,
+   * sans attendre un rechargement manuel de la page. Volontairement plus
+   * long que l'intervalle de sondage (le boîtier envoie ~toutes les 10s) pour
+   * absorber un envoi manqué isolé sans faire clignoter l'affichage.
+   */
+  private static readonly TELEMETRIE_STALE_MS = 20000;
+  /** Horodatage navigateur (Date.now()) de la dernière télémétrie affichée. */
+  private lastTelemetrieReceivedAt: number | null = null;
+  /**
    * Horodatage de la télémétrie déjà connue au moment de l'ouverture de la
    * page (ou de la dernière mise à jour affichée) — sert de référence pour
    * ne montrer QUE les données reçues pendant la session en cours. Sans ça,
@@ -2257,6 +2267,9 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
    * cartes restent sur « Donnée non disponible »), puis seule une nouvelle
    * télémétrie reçue après coup (donc pendant que la page est ouverte) est
    * affichée — preuve visuelle qu'il s'agit bien d'un flux en direct.
+   * Si plus aucune nouvelle télémétrie n'arrive pendant TELEMETRIE_STALE_MS
+   * (boîtier éteint/déconnecté), les cartes repassent seules à « non
+   * disponible » sans qu'un rechargement de page soit nécessaire.
    */
   private loadLatestTelemetrie(equipment: Equipment): void {
     if (!equipment.backendId) return;
@@ -2264,6 +2277,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
     this.latestTelemetrie.set(null);
     this.telemetrieBaselineHorodatage = null;
+    this.lastTelemetrieReceivedAt = null;
     this.telemetriePollingSubscription?.unsubscribe();
 
     this.equipmentService.getLatestTelemetrie(backendId).subscribe(baseline => {
@@ -2273,6 +2287,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
           this.applyTelemetrieIfNewer(entry);
         });
+        this.checkTelemetrieStale();
       });
     });
   }
@@ -2286,6 +2301,16 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     if (isNewer) {
       this.latestTelemetrie.set(entry);
       this.telemetrieBaselineHorodatage = entry.horodatage;
+      this.lastTelemetrieReceivedAt = Date.now();
+    }
+  }
+
+  /** Repasse les cartes à « non disponible » si plus rien n'arrive depuis trop longtemps. */
+  private checkTelemetrieStale(): void {
+    if (this.latestTelemetrie() === null || this.lastTelemetrieReceivedAt === null) return;
+    const elapsed = Date.now() - this.lastTelemetrieReceivedAt;
+    if (elapsed > EquipmentDetailPageComponent.TELEMETRIE_STALE_MS) {
+      this.latestTelemetrie.set(null);
     }
   }
 
