@@ -127,6 +127,7 @@ export interface TelemetrieEntry {
   tension: number | null;
   courant: number | null;
   temperature: number | null;
+  humidite: number | null;
   etat_kit: string | null;
   statut_paiement: string | null;
   signal_gsm: number | null;
@@ -736,6 +737,7 @@ export class EquipmentService {
             tension: latest.tension != null ? Number(latest.tension) : null,
             courant: latest.courant != null ? Number(latest.courant) : null,
             temperature: latest.temperature != null ? Number(latest.temperature) : null,
+            humidite: latest.humidite != null ? Number(latest.humidite) : null,
             etat_kit: latest.etat_kit ?? null,
             statut_paiement: latest.statut_paiement ?? null,
             signal_gsm: latest.signal_gsm != null ? Number(latest.signal_gsm) : null,

@@ -1,5 +1,6 @@
-﻿import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Subscription, interval } from 'rxjs';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -456,7 +457,7 @@ interface RealAlerte {
     .affect-btn-confirm:disabled { background: #CBD5E1; cursor: not-allowed; }
   `]
 })
-export class AlertsPageComponent implements OnInit {
+export class AlertsPageComponent implements OnInit, OnDestroy {
   /** Alertes réelles reçues du backend (bridge IoT) — GET /api/alertes. */
   realAlertes: RealAlerte[] = [];
   realAlertesLoading = false;
@@ -492,13 +493,27 @@ export class AlertsPageComponent implements OnInit {
     private router: Router
   ) {}
 
+  private realAlertesPollingSubscription: Subscription | null = null;
+  private static readonly ALERTES_POLL_MS = 10000;
+
   ngOnInit(): void {
     this.loadRealAlertes();
+    this.realAlertesPollingSubscription = interval(AlertsPageComponent.ALERTES_POLL_MS).subscribe(() => {
+      this.loadRealAlertes(true);
+    });
   }
 
-  /** Charge les alertes réellement reçues des boîtiers IoT — GET /api/alertes. */
-  loadRealAlertes(): void {
-    this.realAlertesLoading = true;
+  ngOnDestroy(): void {
+    this.realAlertesPollingSubscription?.unsubscribe();
+  }
+
+  /**
+   * Charge les alertes réellement reçues des boîtiers IoT — GET /api/alertes.
+   * `silent` évite de montrer le spinner lors du rafraîchissement automatique
+   * en arrière-plan (seul le clic manuel sur "Rafraîchir" l'affiche).
+   */
+  loadRealAlertes(silent = false): void {
+    if (!silent) this.realAlertesLoading = true;
     this.realAlertesError = null;
     this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
@@ -506,7 +521,7 @@ export class AlertsPageComponent implements OnInit {
         this.realAlertesLoading = false;
       },
       error: () => {
-        this.realAlertesError = 'Impossible de récupérer les alertes IoT (backend indisponible).';
+        if (!silent) this.realAlertesError = 'Impossible de récupérer les alertes IoT (backend indisponible).';
         this.realAlertesLoading = false;
       }
     });

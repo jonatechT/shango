@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, interval } from 'rxjs';
 import {
   EquipmentService,
   Equipment,
@@ -287,14 +287,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-orange"><i class="fa-solid fa-droplet"></i></span>
               <span class="eqd-card-label">Humidité</span>
             </div>
-            @if (batteryDiagnostic()?.humidite_pourcent !== null && batteryDiagnostic()?.humidite_pourcent !== undefined) {
-              <div class="eqd-card-value">{{ batteryHumidityDisplay }}</div>
-              <div class="eqd-card-meta">Mesure du diagnostic batterie</div>
+            @if (latestTelemetrie()?.humidite !== null && latestTelemetrie()?.humidite !== undefined) {
+              <div class="eqd-card-value">{{ telemetrieHumiditeDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
@@ -2148,7 +2148,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
     }
   `]
 })
-export class EquipmentDetailPageComponent implements OnInit {
+export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   equipment: Equipment | null = null;
   diagnostic: EquipmentDiagnostic = { etat: 'État normal', gravite: '—', anomalie: null };
 
@@ -2239,12 +2239,31 @@ export class EquipmentDetailPageComponent implements OnInit {
     }
   }
 
+  /** Rafraîchissement automatique de la télémétrie (le bridge IoT envoie en continu). */
+  private telemetriePollingSubscription: Subscription | null = null;
+  private static readonly TELEMETRIE_POLL_MS = 8000;
+
   /** Dernière télémétrie IoT — GET /api/equipements/{backendId}/telemetries. */
   private loadLatestTelemetrie(equipment: Equipment): void {
     if (!equipment.backendId) return;
-    this.equipmentService.getLatestTelemetrie(equipment.backendId).subscribe(entry => {
+    const backendId = equipment.backendId;
+    this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
       this.latestTelemetrie.set(entry);
     });
+
+    // Un seul intervalle actif à la fois (évite les doublons si l'équipement
+    // se résout deux fois : cache local puis rechargement backend).
+    this.telemetriePollingSubscription?.unsubscribe();
+    this.telemetriePollingSubscription = interval(EquipmentDetailPageComponent.TELEMETRIE_POLL_MS).subscribe(() => {
+      this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
+        this.latestTelemetrie.set(entry);
+      });
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.telemetriePollingSubscription?.unsubscribe();
+    this.batteryDiagnosticSubscription?.unsubscribe();
   }
 
   /** Historique de localisation — GET /api/equipements/{id}/localisations. */
@@ -2682,6 +2701,11 @@ export class EquipmentDetailPageComponent implements OnInit {
 
   get telemetriePaiementDisplay(): string {
     return this.latestTelemetrie()?.statut_paiement ?? '—';
+  }
+
+  get telemetrieHumiditeDisplay(): string {
+    const v = this.latestTelemetrie()?.humidite;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(0)} %` : '—';
   }
 
   get batteryCapacityDisplay(): string {
