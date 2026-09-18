@@ -2249,7 +2249,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
    * long que l'intervalle de sondage (le boîtier envoie ~toutes les 10s) pour
    * absorber un envoi manqué isolé sans faire clignoter l'affichage.
    */
-  private static readonly TELEMETRIE_STALE_MS = 20000;
+  private static readonly TELEMETRIE_STALE_MS = 10000;
   /** Horodatage navigateur (Date.now()) de la dernière télémétrie affichée. */
   private lastTelemetrieReceivedAt: number | null = null;
   /**
