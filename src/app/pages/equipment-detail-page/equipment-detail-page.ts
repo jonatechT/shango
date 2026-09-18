@@ -299,14 +299,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           </article>
 
-          <!-- Statut paiement -->
+          <!-- État du kit -->
           <article class="eqd-card">
             <div class="eqd-card-head">
-              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-              <span class="eqd-card-label">Statut paiement</span>
+              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-power-off"></i></span>
+              <span class="eqd-card-label">État du kit</span>
             </div>
-            @if (latestTelemetrie()?.statut_paiement) {
-              <div [class]="'eqd-card-value ' + paiementStatusClass">{{ telemetriePaiementDisplay }}</div>
+            @if (latestTelemetrie()?.etat_kit) {
+              <div [class]="'eqd-card-value ' + etatKitStatusClass">{{ telemetrieEtatKitDisplay }}</div>
               <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
@@ -2727,8 +2727,19 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     return v !== null && v !== undefined ? `${Number(v).toFixed(2)} V` : '—';
   }
 
-  get telemetriePaiementDisplay(): string {
-    return this.latestTelemetrie()?.statut_paiement ?? '—';
+  get telemetrieEtatKitDisplay(): string {
+    const etat = this.latestTelemetrie()?.etat_kit;
+    if (etat === 'MARCHE') return 'En marche';
+    if (etat === 'BLOQUE') return 'Bloqué';
+    return etat ?? '—';
+  }
+
+  /** Couleur de la carte État du kit (vert = en marche, rouge = bloqué). */
+  get etatKitStatusClass(): string {
+    const etat = this.latestTelemetrie()?.etat_kit;
+    if (etat === 'BLOQUE') return 'eqd-bdiag-measure-value--danger';
+    if (etat === 'MARCHE') return 'eqd-bdiag-measure-value--success';
+    return '';
   }
 
   get telemetrieHumiditeDisplay(): string {
