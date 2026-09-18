@@ -2242,23 +2242,51 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   /** Rafraîchissement automatique de la télémétrie (le bridge IoT envoie en continu). */
   private telemetriePollingSubscription: Subscription | null = null;
   private static readonly TELEMETRIE_POLL_MS = 8000;
+  /**
+   * Horodatage de la télémétrie déjà connue au moment de l'ouverture de la
+   * page (ou de la dernière mise à jour affichée) — sert de référence pour
+   * ne montrer QUE les données reçues pendant la session en cours. Sans ça,
+   * une vieille télémétrie encore en base s'afficherait dès l'ouverture,
+   * donnant l'impression (à tort) d'une donnée figée/mockée.
+   */
+  private telemetrieBaselineHorodatage: string | null = null;
 
-  /** Dernière télémétrie IoT — GET /api/equipements/{backendId}/telemetries. */
+  /**
+   * Dernière télémétrie IoT — GET /api/equipements/{backendId}/telemetries.
+   * À l'ouverture, on capture la référence existante SANS l'afficher (les
+   * cartes restent sur « Donnée non disponible »), puis seule une nouvelle
+   * télémétrie reçue après coup (donc pendant que la page est ouverte) est
+   * affichée — preuve visuelle qu'il s'agit bien d'un flux en direct.
+   */
   private loadLatestTelemetrie(equipment: Equipment): void {
     if (!equipment.backendId) return;
     const backendId = equipment.backendId;
-    this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
-      this.latestTelemetrie.set(entry);
-    });
 
-    // Un seul intervalle actif à la fois (évite les doublons si l'équipement
-    // se résout deux fois : cache local puis rechargement backend).
+    this.latestTelemetrie.set(null);
+    this.telemetrieBaselineHorodatage = null;
     this.telemetriePollingSubscription?.unsubscribe();
-    this.telemetriePollingSubscription = interval(EquipmentDetailPageComponent.TELEMETRIE_POLL_MS).subscribe(() => {
-      this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
-        this.latestTelemetrie.set(entry);
+
+    this.equipmentService.getLatestTelemetrie(backendId).subscribe(baseline => {
+      this.telemetrieBaselineHorodatage = baseline?.horodatage ?? null;
+
+      this.telemetriePollingSubscription = interval(EquipmentDetailPageComponent.TELEMETRIE_POLL_MS).subscribe(() => {
+        this.equipmentService.getLatestTelemetrie(backendId).subscribe(entry => {
+          this.applyTelemetrieIfNewer(entry);
+        });
       });
     });
+  }
+
+  /** N'affiche une télémétrie que si elle est plus récente que la référence connue. */
+  private applyTelemetrieIfNewer(entry: TelemetrieEntry | null): void {
+    if (!entry) return;
+    const isNewer =
+      !this.telemetrieBaselineHorodatage ||
+      new Date(entry.horodatage).getTime() > new Date(this.telemetrieBaselineHorodatage).getTime();
+    if (isNewer) {
+      this.latestTelemetrie.set(entry);
+      this.telemetrieBaselineHorodatage = entry.horodatage;
+    }
   }
 
   ngOnDestroy(): void {
