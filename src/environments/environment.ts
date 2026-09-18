@@ -11,5 +11,5 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://learning-border-howto-privileges.trycloudflare.com/api'
+  apiUrl: 'https://commerce-usual-similarly-garden.trycloudflare.com/api'
 };
