@@ -1,0 +1,58 @@
+# Blueprint Render : New + > Blueprint, puis choisir ce dépôt.
+# Le backend Laravel vit dans backend/ (le frontend Angular est à la racine).
+services:
+  - type: web
+    name: shango-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: SHANGO
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false # php artisan key:generate --show
+      - key: APP_URL
+        sync: false # ex. https://shango-api.onrender.com (sert à construire l'URL des photos)
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: shango-db
+          property: connectionString
+      # Pas de worker ni de sessions navigateur : API token (Sanctum) uniquement.
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SESSION_DRIVER
+        value: array
+      - key: CACHE_STORE
+        value: database
+      - key: FILESYSTEM_DISK
+        value: local
+      # Compte créé au premier démarrage s'il n'existe pas.
+      - key: SUPERADMIN_EMAIL
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false
+      # Clé que le Bridge IoT envoie dans X-API-Key.
+      - key: SHANGO_IOT_API_KEY
+        sync: false
+      # Optionnels : blocage physique via le Bridge, et service IA (FastAPI) s'ils sont hébergés ailleurs.
+      - key: SHANGO_BRIDGE_URL
+        sync: false
+      - key: SHANGO_BRIDGE_API_KEY
+        sync: false
+      - key: BATTERIE_IA_URL
+        sync: false
+
+databases:
+  - name: shango-db
+    plan: free
+    databaseName: shango

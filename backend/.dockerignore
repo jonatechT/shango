@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+!.env.example
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+public/storage
+public/build
+tests
+*.json.bak
+alertes_dump*.json
+alertes_now.json
+shango_bridge.py

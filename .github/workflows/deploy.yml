@@ -4,6 +4,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Le backend (backend/) et sa config Render n'affectent pas le site statique.
+    paths-ignore:
+      - 'backend/**'
+      - 'render.yaml'
   workflow_dispatch:
 
 permissions:
