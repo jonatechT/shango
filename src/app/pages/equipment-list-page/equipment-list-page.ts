@@ -449,16 +449,21 @@ export class EquipmentListPageComponent {
   pageTitle = "Parc d'équipement";
   pageSubtitle = 'Suivi en temps réel de vos équipements sur la carte.';
 
-  /**
-   * Valeurs KPI du parc — cohérentes entre elles :
-   *   Équipements localisés (100) = En ligne (90) + Bloqués (10)
-   * « En ligne » = équipements non bloqués (même sémantique que la page
-   * /equipements/en-ligne). Valeurs alignées sur le tableau de bord
-   * (Total équipements = 100, Équipements en ligne = 90).
-   */
-  kpiLocalises = 100;
-  kpiBloques = 10;
-  kpiEnLigne = 90;
+  /** Parc complet (non filtré par le mode « en ligne »), pour calculer les KPI. */
+  private allEquipments: Equipment[] = [];
+
+  /** Total réel du parc (issu du backend). */
+  protected get kpiLocalises(): number {
+    return this.allEquipments.length;
+  }
+  /** Équipements bloqués (`etat_kit` = BLOQUE côté backend). */
+  protected get kpiBloques(): number {
+    return this.allEquipments.filter(e => e.bloque).length;
+  }
+  /** « En ligne » = non bloqués (même sémantique que la page /equipements/en-ligne). */
+  protected get kpiEnLigne(): number {
+    return this.allEquipments.filter(e => !e.bloque).length;
+  }
 
   constructor(
     private equipmentService: EquipmentService,
@@ -479,8 +484,9 @@ export class EquipmentListPageComponent {
   }
 
   private applyEquipments(all: Equipment[]): void {
+    this.allEquipments = all;
     // Seuls les équipements non bloqués apparaissent sur la page "en ligne".
-    // Les KPI restent ceux du parc complet (déjà cohérents) — pas d'écrasement.
+    // Les KPI (calculés sur allEquipments) restent ceux du parc complet.
     this.equipments = this.enLigneMode ? all.filter(e => !e.bloque) : all;
   }
 
