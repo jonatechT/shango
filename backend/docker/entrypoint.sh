@@ -21,7 +21,12 @@ php artisan storage:link --force
 
 # Premier compte superadmin (le plan gratuit n'a pas de shell). Sans effet s'il existe déjà.
 if [ -n "$SUPERADMIN_EMAIL" ] && [ -n "$SUPERADMIN_PASSWORD" ]; then
-    php artisan shango:ensure-superadmin "$SUPERADMIN_EMAIL" "$SUPERADMIN_PASSWORD"
+    # SUPERADMIN_RESET_PASSWORD=true : réécrit le mot de passe d'un compte existant (à retirer ensuite).
+    if [ "$SUPERADMIN_RESET_PASSWORD" = "true" ]; then
+        php artisan shango:ensure-superadmin "$SUPERADMIN_EMAIL" "$SUPERADMIN_PASSWORD" --reset
+    else
+        php artisan shango:ensure-superadmin "$SUPERADMIN_EMAIL" "$SUPERADMIN_PASSWORD"
+    fi
 fi
 
 php artisan config:cache
