@@ -1457,10 +1457,27 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       gap: 22px;
     }
 
+    /*
+     * "Informations générales" a un en-tête plus sobre que le diagnostic
+     * batterie (icône + titre seuls, pas de sous-titre ni de bouton
+     * d'action à droite) : avec le même padding/gap que ce dernier, l'en-
+     * tête laissait un grand vide au-dessus de la grille. Padding du haut
+     * et espacement réduits spécifiquement pour cette carte.
+     */
+    .eqd-infos-generales {
+      padding: 20px 28px 26px;
+      gap: 14px;
+    }
+    .eqd-infos-generales .eqd-bdiag-head {
+      padding-bottom: 14px;
+      align-items: center;
+    }
+
     .eqd-infos-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 18px 24px;
+      align-items: start;
     }
     .eqd-infos-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .eqd-infos-key { font-size: 11.5px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.4px; }

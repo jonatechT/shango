@@ -283,11 +283,7 @@
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: conic-gradient(
-    #10B981 0% 90%,
-    #ff0000 90% 98%,
-    #ffe500 98% 100%
-  );
+  /* Dégradé calculé dynamiquement (voir DashboardComponent.donutGradient) — plus de valeurs figées ici. */
   position: relative;
   flex-shrink: 0;
 }

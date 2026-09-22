@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subscription, interval } from 'rxjs';
 import { EquipmentService, Equipment } from '../services/equipment.service';
 import { environment } from '../../environments/environment';
 
@@ -69,7 +70,7 @@ const INCIDENT_STATUS_LABELS: Record<string, string> = {
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
 
   /** true tant que GET /api/dashboard n'a pas répondu (évite d'afficher des zéros trompeurs). */
   statsLoading = true;
@@ -81,17 +82,27 @@ export class DashboardComponent implements OnInit {
   horsLigne = 0;
   /** Compté sur le parc réel chargé (statut='Inspection', voir loadEquipmentBreakdown) — pas fourni par /api/dashboard. */
   enMaintenance = 0;
-  /** Alertes non résolues (nouvelles + en cours), pas le seul total. */
-  alerteActive = 0;
   /** Aucune notion "d'anomalie" distincte côté backend : incidents_total sert de proxy honnête. */
   anomalieDetectee = 0;
 
   /** Répartition par type d'équipement (raw.type du backend) — calculée sur le parc réel, pas fournie par /api/dashboard. */
   categoryBreakdown: { label: string; count: number; percent: number }[] = [];
 
-  /** Alertes récentes réelles — GET /api/alertes, triées, 5 dernières. */
+  /**
+   * Alertes "actives" — même convention que alerts-page (session-fresh) :
+   * seules les alertes arrivées APRÈS l'ouverture du dashboard comptent,
+   * pas tout ce qui a le statut "nouvelle" en base indéfiniment. Sans ça,
+   * une alerte jamais explicitement résolue resterait comptée pour
+   * toujours, même si personne ne la regarde plus — pas ce que "alerte
+   * active" doit vouloir dire ici. Si rien n'est arrivé depuis l'ouverture,
+   * la carte affiche 0, pas un total historique.
+   */
+  alerteActive = 0;
   recentAlerts: { id: number; title: string; time: string; equipementId?: string }[] = [];
   alertsLoading = true;
+  private baselineMaxAlertId: number | null = null;
+  private static readonly ALERTES_POLL_MS = 10000;
+  private alertesPollingSubscription: Subscription | null = null;
 
   /** "Activités récentes" = incidents réels — GET /api/incidents, 5 derniers. Aucun flux d'activité générique n'existe côté backend. */
   recentActivities: { id: number; title: string; time: string; status: string; statusClass: string; equipementId?: string }[] = [];
@@ -108,6 +119,10 @@ export class DashboardComponent implements OnInit {
     this.loadEquipmentBreakdown();
     this.loadRecentAlerts();
     this.loadRecentActivities();
+  }
+
+  ngOnDestroy(): void {
+    this.alertesPollingSubscription?.unsubscribe();
   }
 
   /** Navigation vers la page détail d'un équipement */
@@ -132,7 +147,6 @@ export class DashboardComponent implements OnInit {
         this.totalEquipements = s.equipements_total;
         this.enLigne = s.equipements_en_marche;
         this.horsLigne = s.equipements_bloques;
-        this.alerteActive = s.alertes_nouvelles + s.alertes_en_cours;
         this.anomalieDetectee = s.incidents_total;
       },
       error: () => {
@@ -171,27 +185,52 @@ export class DashboardComponent implements OnInit {
     this.enMaintenance = list.filter(e => e.statut === 'Inspection').length;
   }
 
+  /**
+   * Établit la référence (plus grand id déjà connu) puis lance le sondage —
+   * identique au principe de alerts-page.loadRealAlertes/baselineMaxAlertId.
+   */
   private loadRecentAlerts(): void {
     this.alertsLoading = true;
     this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
+        const data = res.data ?? [];
+        this.baselineMaxAlertId = data.length > 0 ? Math.max(...data.map(a => a.id)) : 0;
         this.alertsLoading = false;
-        this.recentAlerts = (res.data ?? [])
-          .slice()
-          .sort((a, b) => new Date(b.horodatage).getTime() - new Date(a.horodatage).getTime())
-          .slice(0, 5)
-          .map(a => ({
-            id: a.id,
-            title: `${TYPE_ALERTE_LABELS[a.type_alerte] ?? a.type_alerte} — ${a.equipement?.nom || a.equipement?.reference || a.device_id}`,
-            time: this.relativeTime(a.horodatage),
-            equipementId: a.equipement?.reference
-          }));
+        this.applySessionAlerts([]);
+        this.alertesPollingSubscription = interval(DashboardComponent.ALERTES_POLL_MS).subscribe(() => {
+          this.pollRecentAlerts();
+        });
       },
       error: () => {
+        this.baselineMaxAlertId = 0;
         this.alertsLoading = false;
-        this.recentAlerts = [];
       }
     });
+  }
+
+  private pollRecentAlerts(): void {
+    if (this.baselineMaxAlertId === null) return;
+    this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
+      next: res => {
+        const fresh = (res.data ?? []).filter(a => a.id > this.baselineMaxAlertId!);
+        this.applySessionAlerts(fresh);
+      },
+      error: () => { /* backend temporairement indisponible : on garde le dernier état connu */ }
+    });
+  }
+
+  private applySessionAlerts(fresh: RealAlerte[]): void {
+    this.alerteActive = fresh.length;
+    this.recentAlerts = fresh
+      .slice()
+      .sort((a, b) => new Date(b.horodatage).getTime() - new Date(a.horodatage).getTime())
+      .slice(0, 5)
+      .map(a => ({
+        id: a.id,
+        title: `${TYPE_ALERTE_LABELS[a.type_alerte] ?? a.type_alerte} — ${a.equipement?.nom || a.equipement?.reference || a.device_id}`,
+        time: this.relativeTime(a.horodatage),
+        equipementId: a.equipement?.reference
+      }));
   }
 
   private loadRecentActivities(): void {
@@ -235,6 +274,20 @@ export class DashboardComponent implements OnInit {
   getProgressStyle(percent: number, color: string): string {
     const p = Math.min(100, Math.max(0, percent));
     return `conic-gradient(${color} 0% ${p}%, #E2E8F0 ${p}% 100%)`;
+  }
+
+  /**
+   * Dégradé du donut "Répartition par statut", calculé sur les vraies
+   * proportions (en ligne / hors ligne / en maintenance) — remplace un
+   * conic-gradient figé en dur dans le CSS (90/8/2 %) qui ne reflétait
+   * jamais les vraies données, seule la légende à côté était mise à jour.
+   */
+  get donutGradient(): string {
+    const total = this.enLigne + this.horsLigne + this.enMaintenance;
+    if (total === 0) return 'conic-gradient(#E2E8F0 0% 100%)';
+    const p1 = (this.enLigne / total) * 100;
+    const p2 = p1 + (this.horsLigne / total) * 100;
+    return `conic-gradient(#10B981 0% ${p1}%, #ff0000 ${p1}% ${p2}%, #ffe500 ${p2}% 100%)`;
   }
 
   get totalEquipementsPourcent(): number {

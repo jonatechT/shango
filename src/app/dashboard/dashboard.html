@@ -97,7 +97,7 @@
     <div class="card">
       <h2 class="card-title">Répartition par statut</h2>
       <div class="statut-wrapper">
-        <div class="donut-chart"></div>
+        <div class="donut-chart" [style.background]="donutGradient"></div>
         <div class="donut-legend">
           <div class="legend-item"><span class="legend-dot" style="background: #10B981;"></span><span class="legend-label">Équipements en ligne</span><span class="legend-value">{{ statsLoading ? '—' : enLigne }}</span></div>
           <div class="legend-item"><span class="legend-dot" style="background: #ff0000;"></span><span class="legend-label">Équipement hors ligne (bloqué)</span><span class="legend-value">{{ statsLoading ? '—' : horsLigne }}</span></div>
