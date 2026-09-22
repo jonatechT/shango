@@ -49,8 +49,24 @@ services:
         sync: false
       - key: SHANGO_BRIDGE_API_KEY
         sync: false
+      # URL du service shango-ai ci-dessous (https://shango-ai.onrender.com),
+      # à coller une fois ce service créé — son nom exact dépend de s'il
+      # était déjà pris par quelqu'un d'autre sur Render.
       - key: BATTERIE_IA_URL
         sync: false
+
+  # Modèles SOH/RUL (scikit-learn + XGBoost, pas de LLM). Aucune variable
+  # d'environnement requise : le script ne lit ni MODELS_DIR, ni API_PORT,
+  # ni CORS_ORIGINS malgré ce que documente ai/.env.example — ports et
+  # chemins sont gérés par le Dockerfile, le reste est câblé en dur dans
+  # shango_api.py (CORS ouvert à tous, pas d'authentification).
+  - type: web
+    name: shango-ai
+    runtime: docker
+    dockerfilePath: ./ai/Dockerfile
+    dockerContext: ./ai
+    plan: free
+    healthCheckPath: /health
 
 databases:
   - name: shango-db

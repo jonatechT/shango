@@ -1,0 +1,12 @@
+{
+  "encoding": {
+    "Bon": 0,
+    "A Surveiller": 1,
+    "A Remplacer": 2
+  },
+  "decoding": {
+    "0": "Bon",
+    "1": "A Surveiller",
+    "2": "A Remplacer"
+  }
+}
