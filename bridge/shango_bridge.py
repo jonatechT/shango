@@ -532,6 +532,32 @@ mqtt_client_ref = {
 
 
 # =====================================================
+# SUPERVISION : /health
+# =====================================================
+# Utilisé par un service de ping externe (ex. UptimeRobot) pour vérifier
+# que le Bridge tourne encore et reste connecté au broker MQTT.
+
+@flask_app.route(
+    "/health",
+    methods=["GET"]
+)
+def health():
+
+    client = mqtt_client_ref["client"]
+
+    mqtt_connecte = bool(
+        client is not None
+        and client.is_connected()
+    )
+
+    return jsonify({
+        "status": "up",
+        "mqtt_connecte": mqtt_connecte,
+        "mqtt_broker": f"{MQTT_BROKER}:{MQTT_PORT}",
+    }), 200 if mqtt_connecte else 503
+
+
+# =====================================================
 # HTTP -> MQTT : /commande
 # =====================================================
 

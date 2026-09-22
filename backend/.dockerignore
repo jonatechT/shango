@@ -14,4 +14,3 @@ tests
 *.json.bak
 alertes_dump*.json
 alertes_now.json
-shango_bridge.py

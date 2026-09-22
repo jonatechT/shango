@@ -1,0 +1,30 @@
+# Service systemd pour faire tourner le Bridge en continu sur une VM Linux
+# (relance automatique au boot et en cas de crash).
+#
+# Installation (sur la VM, une fois le dossier bridge/ copié dans
+# /opt/shango-bridge et .env rempli à côté de shango_bridge.py) :
+#   sudo cp shango-bridge.service /etc/systemd/system/shango-bridge.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now shango-bridge
+#
+# Suivre les logs :
+#   sudo journalctl -u shango-bridge -f
+
+[Unit]
+Description=SHANGO Bridge MQTT <-> HTTP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shango-bridge
+EnvironmentFile=/opt/shango-bridge/.env
+ExecStart=/opt/shango-bridge/venv/bin/python3 /opt/shango-bridge/shango_bridge.py
+Restart=always
+RestartSec=5
+User=shango
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
