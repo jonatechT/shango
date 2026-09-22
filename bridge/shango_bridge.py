@@ -48,6 +48,12 @@ from datetime import datetime, timezone
 import requests
 import paho.mqtt.client as mqtt
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+
+# Charge .env s'il est présent à côté du script (pratique pour un lancement
+# local répété) ; ne fait rien si le fichier n'existe pas — sans effet en
+# production où les variables viennent de l'environnement du service.
+load_dotenv()
 
 
 # =====================================================
