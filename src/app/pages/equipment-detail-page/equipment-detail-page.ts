@@ -2246,10 +2246,16 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
    * Durée sans nouvelle télémétrie au-delà de laquelle on considère le
    * boîtier injoignable et on repasse les cartes à « Donnée non disponible »,
    * sans attendre un rechargement manuel de la page. Volontairement plus
-   * long que l'intervalle de sondage (le boîtier envoie ~toutes les 10s) pour
-   * absorber un envoi manqué isolé sans faire clignoter l'affichage.
+   * long que l'intervalle d'envoi réel du boîtier (10s tapis à tapis,
+   * vérifié sur SH-001) pour absorber un envoi manqué isolé sans faire
+   * clignoter l'affichage entre deux télémétries normales.
+   *
+   * Était à 8000 (< 10000) : l'affichage basculait donc systématiquement en
+   * « non disponible » pendant les ~2 dernières secondes de chaque cycle,
+   * avant l'arrivée de la télémétrie suivante — pas un envoi manqué, juste
+   * un seuil plus court que l'intervalle réel du boîtier.
    */
-  private static readonly TELEMETRIE_STALE_MS = 8000;
+  private static readonly TELEMETRIE_STALE_MS = 15000;
   /** Horodatage navigateur (Date.now()) de la dernière télémétrie affichée. */
   private lastTelemetrieReceivedAt: number | null = null;
   /**
