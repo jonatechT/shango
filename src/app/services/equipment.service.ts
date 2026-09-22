@@ -725,11 +725,17 @@ export class EquipmentService {
   }
 
   /**
-   * Historique de localisation — GET /api/equipements/{id}/localisations.
+   * Historique de localisation — reconstruit à partir de la vraie télémétrie
+   * (GET /api/equipements/{backendId}/telemetries), PAS d'un endpoint dédié.
    *
-   * Endpoint attendu côté backend (convention projet, cf. blocage équipement) :
-   * renvoie [] si aucune donnée (404 / endpoint absent) ; les erreurs réelles
-   * (backend indisponible, HTTP != 404) sont exposées via `locationHistoryError`.
+   * `GET /api/equipements/{id}/localisations` (l'endpoint que cette méthode
+   * appelait jusqu'ici) n'existe pas côté backend (404 systématique) : seule
+   * une route globale, non filtrée par équipement, existe (`GET
+   * /localisations`), et rien ne l'alimente jamais (table vide en base
+   * réelle, confirmé). La télémétrie, elle, contient déjà latitude/longitude
+   * réelles et fonctionne — on regroupe les lectures consécutives à la même
+   * position (arrondie à ~11 m) en "séjours" plutôt que d'inventer une
+   * notion de début/fin qui n'existe pas côté backend.
    */
   getEquipmentLocationHistory(id: string): Observable<LocationHistoryEntry[]> {
     this.locationHistoryError.set(null);
@@ -739,10 +745,15 @@ export class EquipmentService {
       return of(mockLocationHistory(id, equipment?.localisation ?? '', equipment?.lienLocalisation ?? ''));
     }
 
+    const backendId = this.getById(id)?.backendId;
+    if (!backendId) {
+      return of([]);
+    }
+
     return this.http
-      .get<LocationHistoryEntry[]>(`/api/equipements/${encodeURIComponent(id)}/localisations`)
+      .get<{ data: any[] }>(`${environment.apiUrl}/equipements/${backendId}/telemetries`)
       .pipe(
-        map(list => (Array.isArray(list) ? list : [])),
+        map(res => this.buildLocationHistoryFromTelemetries(Array.isArray(res.data) ? res.data : [])),
         catchError((error: HttpErrorResponse) => {
           if (error.status === 0) {
             this.locationHistoryError.set(
@@ -754,6 +765,42 @@ export class EquipmentService {
           return of([]);
         })
       );
+  }
+
+  /**
+   * Regroupe des télémétries triées (plus récente d'abord, comme renvoyé par
+   * le backend) en "séjours" : plusieurs lectures consécutives à la même
+   * position (arrondie à 4 décimales, ~11 m) forment une seule entrée avec
+   * une date de début et de fin, au lieu d'une ligne par télémétrie brute.
+   * {latitude:0, longitude:0} (pas de fix GPS) est ignoré, pas traité comme
+   * une vraie position — même convention que hasGpsFix() côté page détail.
+   */
+  private buildLocationHistoryFromTelemetries(raw: any[]): LocationHistoryEntry[] {
+    const withFix = raw
+      .filter(t => t.latitude != null && t.longitude != null && !(Number(t.latitude) === 0 && Number(t.longitude) === 0))
+      .map(t => ({ lat: Number(t.latitude), lon: Number(t.longitude), horodatage: t.horodatage as string }))
+      // Le backend renvoie du plus récent au plus ancien ; on retraite du plus ancien au plus récent pour regrouper dans l'ordre chronologique.
+      .reverse();
+
+    const key = (lat: number, lon: number) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
+
+    const groups: { lat: number; lon: number; debut: string; fin: string }[] = [];
+    for (const point of withFix) {
+      const last = groups[groups.length - 1];
+      if (last && key(last.lat, last.lon) === key(point.lat, point.lon)) {
+        last.fin = point.horodatage;
+      } else {
+        groups.push({ lat: point.lat, lon: point.lon, debut: point.horodatage, fin: point.horodatage });
+      }
+    }
+
+    // Plus récent en premier (convention déjà utilisée par le template : entry[0] = position actuelle si date_fin est null).
+    return groups.reverse().map((g, index) => ({
+      date_debut: g.debut,
+      date_fin: index === 0 ? null : g.fin,
+      localisation: `${g.lat.toFixed(6)}°, ${g.lon.toFixed(6)}°`,
+      lien_localisation: `${g.lat},${g.lon}`
+    }));
   }
 
   /**

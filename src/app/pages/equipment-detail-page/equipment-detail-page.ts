@@ -220,6 +220,66 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
           </div>
         </section>
 
+        <!-- ===== Informations générales ===== -->
+        @if (hasInfosGenerales) {
+          <section class="eqd-infos-generales">
+            <header class="eqd-bdiag-head">
+              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="eqd-bdiag-head-text">
+                <h3 class="eqd-bdiag-title">Informations générales</h3>
+              </div>
+            </header>
+            <div class="eqd-infos-grid">
+              <div class="eqd-infos-item">
+                <span class="eqd-infos-key">Type / catégorie</span>
+                <span class="eqd-infos-value">{{ equipment.type }}</span>
+              </div>
+              @if (equipment.marqueModele) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Marque / modèle</span>
+                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
+                </div>
+              }
+              @if (equipment.clientNom) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Nom du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
+                </div>
+              }
+              @if (equipment.clientNumero) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Numéro du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
+                </div>
+              }
+              @if (equipment.site) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Site / emplacement</span>
+                  <span class="eqd-infos-value">{{ equipment.site }}</span>
+                </div>
+              }
+              @if (equipment.boitierId) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
+                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
+                </div>
+              }
+              @if (equipment.responsable) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Responsable</span>
+                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
+                </div>
+              }
+              @if (equipment.perimetreMetres) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Périmètre autorisé</span>
+                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
         <!-- ===== Grille des indicateurs ===== -->
         <!-- Ordre voulu : Latitude+Longitude (complémentaires, même ligne),
              DoD+État du kit (même ligne), puis Courant en dernier — la grille
@@ -665,66 +725,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           }
         </section>
-
-        <!-- ===== Informations générales (en bas de page) ===== -->
-        @if (hasInfosGenerales) {
-          <section class="eqd-infos-generales">
-            <header class="eqd-bdiag-head">
-              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
-              <div class="eqd-bdiag-head-text">
-                <h3 class="eqd-bdiag-title">Informations générales</h3>
-              </div>
-            </header>
-            <div class="eqd-infos-grid">
-              <div class="eqd-infos-item">
-                <span class="eqd-infos-key">Type / catégorie</span>
-                <span class="eqd-infos-value">{{ equipment.type }}</span>
-              </div>
-              @if (equipment.marqueModele) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Marque / modèle</span>
-                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
-                </div>
-              }
-              @if (equipment.clientNom) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Nom du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
-                </div>
-              }
-              @if (equipment.clientNumero) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Numéro du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
-                </div>
-              }
-              @if (equipment.site) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Site / emplacement</span>
-                  <span class="eqd-infos-value">{{ equipment.site }}</span>
-                </div>
-              }
-              @if (equipment.boitierId) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
-                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
-                </div>
-              }
-              @if (equipment.responsable) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Responsable</span>
-                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
-                </div>
-              }
-              @if (equipment.perimetreMetres) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Périmètre autorisé</span>
-                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
-                </div>
-              }
-            </div>
-          </section>
-        }
 
       }
     </div>
