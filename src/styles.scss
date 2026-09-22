@@ -560,6 +560,15 @@ body.dark-mode .dashboard-title {
   color: #F1F5F9;
 }
 
+body.dark-mode .dashboard-empty {
+  color: #64748B;
+}
+
+body.dark-mode .dashboard-error {
+  background: rgba(229, 72, 77, 0.12);
+  border-color: rgba(229, 72, 77, 0.3);
+}
+
 /* Liste catÃ©gories */
 body.dark-mode .category-name {
   color: #CBD5E1;
@@ -1999,6 +2008,76 @@ body.dark-mode app-rapports-page .rapport-view-conformite span {
   color: #E2E8F0 !important;
 }
 /* ===== Modale Â« Ajouter un Ã©quipement Â» (equipment-list) â€” mode nuit ===== */
+body.dark-mode app-equipment-list-page .filter-scope-trigger {
+  background: #0F172A !important;
+  border-color: #1F2937 !important;
+  color: #E2E8F0 !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-trigger:hover {
+  border-color: #3B82F6 !important;
+  background-color: #111C33 !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-chevron,
+body.dark-mode app-equipment-list-page .filter-field-icon,
+body.dark-mode app-equipment-list-page .filter-scope-option i:first-child {
+  color: #64748B !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-menu {
+  background: #0F172A !important;
+  border-color: #1F2937 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-option {
+  color: #CBD5E1 !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-option:hover {
+  background-color: #111C33 !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-option.active {
+  background-color: #111C33 !important;
+  color: #60A5FA !important;
+}
+body.dark-mode app-equipment-list-page .filter-scope-option.active i:first-child,
+body.dark-mode app-equipment-list-page .filter-scope-check {
+  color: #60A5FA !important;
+}
+body.dark-mode app-equipment-list-page .filter-search-field {
+  background: #0F172A !important;
+  border-color: #1F2937 !important;
+}
+body.dark-mode app-equipment-list-page .filter-search-field:focus-within {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14) !important;
+}
+body.dark-mode app-equipment-list-page .filter-input {
+  color: #E2E8F0 !important;
+}
+body.dark-mode app-equipment-list-page .filter-input::placeholder {
+  color: #64748B !important;
+}
+body.dark-mode app-equipment-list-page .filter-clear-btn {
+  background: #1F2937 !important;
+  color: #94A3B8 !important;
+}
+body.dark-mode app-equipment-list-page .filter-clear-btn:hover {
+  background: #334155 !important;
+  color: #E2E8F0 !important;
+}
+body.dark-mode app-equipment-list-page .filter-reset-btn {
+  background: #0F172A !important;
+  border-color: #1F2937 !important;
+  color: #CBD5E1 !important;
+}
+body.dark-mode app-equipment-list-page .filter-reset-btn:hover {
+  background: #1F2937 !important;
+}
+body.dark-mode app-equipment-list-page .empty-state {
+  color: #64748B !important;
+}
+body.dark-mode app-equipment-list-page .empty-icon {
+  color: #334155 !important;
+}
+
 body.dark-mode app-equipment-list-page .eqm-overlay {
   background: rgba(0, 0, 0, 0.45) !important;
   backdrop-filter: blur(8px) saturate(1.2) !important;

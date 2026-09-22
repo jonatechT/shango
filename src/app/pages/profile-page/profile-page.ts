@@ -41,6 +41,18 @@ export class ProfilePageComponent {
     return structure?.nom || id;
   }
 
+  /**
+   * structureId affiché avec un minimum de 3 chiffres (ex. "6" -> "006").
+   * structureId est l'organization_id du backend, un simple entier auto-
+   * incrémenté — ce padding est purement cosmétique, sans effet sur les
+   * appels API (qui continuent d'utiliser structureId tel quel).
+   */
+  protected get structureIdDisplay(): string {
+    const id = this.user?.structureId;
+    if (!id) return '—';
+    return /^\d+$/.test(id) ? id.padStart(3, '0') : id;
+  }
+
   /** Libellé lisible du rôle. */
   protected roleLabel(): string {
     switch (this.user?.role) {
