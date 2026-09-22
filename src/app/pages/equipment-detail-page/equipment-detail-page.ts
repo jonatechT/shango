@@ -221,25 +221,11 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
         </section>
 
         <!-- ===== Grille des indicateurs ===== -->
+        <!-- Ordre voulu : Latitude+Longitude (complémentaires, même ligne),
+             DoD+État du kit (même ligne), puis Courant en dernier — la grille
+             est en 2 colonnes fixes (.eqd-grid), donc deux cartes consécutives
+             dans le code tombent automatiquement sur la même ligne. -->
         <section class="eqd-grid">
-          <!-- Courant -->
-          <article class="eqd-card">
-            <div class="eqd-card-head">
-              <span class="eqd-chip eqd-chip-blue"><i class="fa-solid fa-microchip"></i></span>
-              <span class="eqd-card-label">Courant</span>
-            </div>
-            @if (latestTelemetrie()?.courant !== null && latestTelemetrie()?.courant !== undefined) {
-              <div class="eqd-card-value">{{ telemetrieCourantDisplay }}</div>
-              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
-            } @else {
-              <div class="eqd-card-value eqd-value-empty">—</div>
-              <div class="eqd-card-foot">
-                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
-              </div>
-            }
-          </article>
-
           <!-- Latitude -->
           <article class="eqd-card">
             <div class="eqd-card-head">
@@ -293,6 +279,24 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             @if (batteryDiagnostic()?.dod_percent !== null && batteryDiagnostic()?.dod_percent !== undefined) {
               <div class="eqd-card-value">{{ batteryDodDisplay }}</div>
               <div class="eqd-card-meta">Dernier diagnostic batterie</div>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+              </div>
+            }
+          </article>
+
+          <!-- État du kit -->
+          <article class="eqd-card">
+            <div class="eqd-card-head">
+              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-power-off"></i></span>
+              <span class="eqd-card-label">État du kit</span>
+            </div>
+            @if (latestTelemetrie()?.etat_kit) {
+              <div [class]="'eqd-card-value ' + etatKitStatusClass">{{ telemetrieEtatKitDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
@@ -356,20 +360,20 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           </article>
 
-          <!-- État du kit -->
+          <!-- Courant -->
           <article class="eqd-card">
             <div class="eqd-card-head">
-              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-power-off"></i></span>
-              <span class="eqd-card-label">État du kit</span>
+              <span class="eqd-chip eqd-chip-blue"><i class="fa-solid fa-microchip"></i></span>
+              <span class="eqd-card-label">Courant</span>
             </div>
-            @if (latestTelemetrie()?.etat_kit) {
-              <div [class]="'eqd-card-value ' + etatKitStatusClass">{{ telemetrieEtatKitDisplay }}</div>
+            @if (latestTelemetrie()?.courant !== null && latestTelemetrie()?.courant !== undefined) {
+              <div class="eqd-card-value">{{ telemetrieCourantDisplay }}</div>
               <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
