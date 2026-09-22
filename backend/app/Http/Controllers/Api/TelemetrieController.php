@@ -90,6 +90,24 @@ class TelemetrieController extends Controller
                 'nullable',
                 'numeric',
             ],
+
+            // Réintroduit le 2026-09-22 : le contrat V3.0 avait retiré le GPS
+            // (voir le commentaire plus bas), mais le firmware du boîtier
+            // l'envoie toujours, imbriqué sous "gps". Décision explicite de
+            // l'utilisateur de le réaccepter malgré ce contrat — si le
+            // développeur backend resynchronise ce fichier depuis son dépôt,
+            // vérifier que ce bloc n'a pas été écrasé silencieusement.
+            'gps.latitude' => [
+                'nullable',
+                'numeric',
+                'between:-90,90',
+            ],
+
+            'gps.longitude' => [
+                'nullable',
+                'numeric',
+                'between:-180,180',
+            ],
         ]);
 
         // =================================================
@@ -126,10 +144,10 @@ class TelemetrieController extends Controller
             'device_id' => $validated['id_appareil'],
             'horodatage' => $horodatage,
 
-            // Le GPS ne fait plus partie du payload V3.0.
-            // Les anciennes colonnes restent en base.
-            'latitude' => null,
-            'longitude' => null,
+            // Le contrat V3.0 avait retiré le GPS, mais le firmware
+            // l'envoie toujours sous "gps" — réaccepté depuis le 2026-09-22.
+            'latitude' => $validated['gps']['latitude'] ?? null,
+            'longitude' => $validated['gps']['longitude'] ?? null,
 
             'tension' => $validated['tension'] ?? null,
             'courant' => $validated['courant'] ?? null,
