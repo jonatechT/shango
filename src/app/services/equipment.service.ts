@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { EQUIPMENT_API_CONFIG } from '../config/equipment-api.config';
 import { mockBatteryCurrentDiagnostic, mockBatteryHistory, mockLocationHistory } from './equipment-mock-data';
 import { AuthService } from '../auth/auth.service';
@@ -552,10 +552,24 @@ export class EquipmentService {
   }
 
   /**
-   * Bloque ou débloque un équipement — PUT /api/equipements/{backendId}
-   * avec `{ "etat_kit": "BLOQUE" | "MARCHE" }` (champ déjà présent côté
-   * backend, pas de route dédiée nécessaire — voir
-   * SHANGO/FRONTEND_INTEGRATION_GAPS.md §3).
+   * Bloque ou débloque un équipement.
+   *
+   * Deux étapes distinctes, dans cet ordre :
+   * 1. POST /api/commande — la vraie commande, relayée par le backend au
+   *    Bridge IoT puis au boîtier en MQTT (shango/<device_id>/command).
+   *    C'est la seule chose qui a un effet physique.
+   * 2. Seulement si (1) réussit : PUT /api/equipements/{backendId} avec
+   *    `{ "etat_kit": ... }`, pour refléter l'état dans l'app sans attendre
+   *    la prochaine télémétrie du boîtier.
+   *
+   * Avant ce correctif (2026-09-22), seule l'étape 2 existait : l'app
+   * affichait "Bloqué" sans qu'aucune commande n'ait jamais été envoyée au
+   * boîtier — champ etat_kit en base, mais boîtier physique inchangé.
+   *
+   * Important : même après cette commande, `etat_kit` en base reste une
+   * valeur optimiste tant que le boîtier n'a pas lui-même confirmé son
+   * nouvel état via sa prochaine télémétrie/status (POST /api/status côté
+   * boîtier) — c'est la seule source de vérité physique.
    */
   setEquipmentStatus(id: string, bloque: boolean): Observable<Equipment | null> {
     this.equipmentStatusError.set(null);
@@ -568,19 +582,50 @@ export class EquipmentService {
       return of(null);
     }
 
-    const body = { etat_kit: bloque ? 'BLOQUE' : 'MARCHE' };
-    return this.http
-      .put<{ data: any }>(`${environment.apiUrl}/equipements/${equipment.backendId}`, body)
-      .pipe(
-        map(() => {
-          this.applyLocalStatus(id, bloque);
-          return this.getById(id) ?? null;
-        }),
-        catchError((error: HttpErrorResponse) => {
-          this.equipmentStatusError.set(this.buildStatusErrorMessage(error));
-          return of(null);
-        })
+    if (!equipment.boitierId) {
+      this.equipmentStatusError.set(
+        "Cet équipement n'a pas d'identifiant de boîtier (device_id) : impossible de lui envoyer une commande."
       );
+      return of(null);
+    }
+
+    const commandeBody = {
+      id_appareil: equipment.boitierId,
+      commande: bloque ? 'BLOQUER' : 'DEBLOQUER',
+      emis_par: this.authService.getUser()?.email ?? 'application',
+    };
+
+    return this.http.post<{ success: boolean; message?: string }>(`${environment.apiUrl}/commande`, commandeBody).pipe(
+      switchMap(() => {
+        const body = { etat_kit: bloque ? 'BLOQUE' : 'MARCHE' };
+        return this.http.put<{ data: any }>(`${environment.apiUrl}/equipements/${equipment.backendId}`, body).pipe(
+          map(() => {
+            this.applyLocalStatus(id, bloque);
+            return this.getById(id) ?? null;
+          })
+        );
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this.equipmentStatusError.set(this.buildCommandeErrorMessage(error));
+        return of(null);
+      })
+    );
+  }
+
+  private buildCommandeErrorMessage(error: HttpErrorResponse): string {
+    if (error.status === 502) {
+      return 'Le boîtier ne peut pas être joint en ce moment (Bridge IoT injoignable) : la commande n\'a pas été transmise.';
+    }
+    if (error.status === 404) {
+      return 'Équipement introuvable côté backend (rechargez la page).';
+    }
+    if (error.status === 401 || error.status === 403) {
+      return "Vous n'avez pas les droits nécessaires pour bloquer/débloquer cet équipement.";
+    }
+    if (error.status === 0) {
+      return "Backend indisponible : impossible d'envoyer la commande au boîtier.";
+    }
+    return `Erreur ${error.status} lors de l'envoi de la commande au boîtier.`;
   }
 
   /** Met à jour l'état local (source actuelle du parc) sans recharger la page. */
@@ -590,19 +635,6 @@ export class EquipmentService {
       equipment.bloque = bloque;
       this.saveEquipments();
     }
-  }
-
-  private buildStatusErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return "Backend indisponible : impossible de changer l'état de l'équipement.";
-    }
-    if (error.status === 404) {
-      return 'Équipement introuvable côté backend (rechargez la page).';
-    }
-    if (error.status === 401 || error.status === 403) {
-      return "Vous n'avez pas les droits nécessaires pour bloquer/débloquer cet équipement.";
-    }
-    return `Erreur ${error.status} lors du changement d'état de l'équipement.`;
   }
 
   /**

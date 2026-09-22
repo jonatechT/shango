@@ -2480,9 +2480,11 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Applique le changement d'état : PATCH /api/equipements/{id}/status
-   * (voir EquipmentService.setEquipmentStatus). Met à jour l'état affiché
-   * immédiatement via le modèle local — sans recharger la page.
+   * Envoie la vraie commande au boîtier (POST /api/commande, via le Bridge
+   * IoT), puis seulement si elle réussit, met à jour l'état affiché (voir
+   * EquipmentService.setEquipmentStatus). En cas d'échec (ex. Bridge
+   * injoignable), l'état affiché n'est PAS modifié — pas de faux "Bloqué"
+   * si la commande n'a pas pu être transmise.
    */
   protected confirmerChangementStatut(): void {
     if (this.statusActionBusy() || !this.equipment) return;
