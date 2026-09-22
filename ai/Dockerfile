@@ -16,9 +16,13 @@
 #   - shango_api.py affiche des emojis au démarrage (✅, 📊...) : sans forcer
 #     l'UTF-8, un environnement avec une locale par défaut restrictive plante
 #     au chargement du module (UnicodeEncodeError), avant même de démarrer.
+#   - Python 3.10 -> 3.11 : scikit-learn==1.9.0 (nécessaire pour relire
+#     shango_scaler.pkl, voir requirements.txt) exige Python >= 3.11 ; avec
+#     3.10, le build échouait dès l'installation ("No matching distribution
+#     found for scikit-learn==1.9.0").
 
 # Stage 1: Builder (construire l'image)
-FROM python:3.10-slim as builder
+FROM python:3.11-slim as builder
 
 WORKDIR /app
 
@@ -33,7 +37,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 # Stage 2: Runtime (image finale minimale)
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -46,7 +50,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier les packages pip du builder
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copier l'application et les modèles (fichiers à plat, pas de sous-dossier).
