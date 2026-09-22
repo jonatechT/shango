@@ -22,6 +22,19 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
   imports: [BatteryHistoryChartsComponent, DatePipe],
   template: `
     <div class="eqd-shell">
+      <!-- ===== Notification flottante : connexion/déconnexion du boîtier ===== -->
+      @if (espConnectionToast(); as toast) {
+        <div
+          class="eqd-esp-toast"
+          [class.eqd-esp-toast--connected]="toast.connected"
+          [class.eqd-esp-toast--disconnected]="!toast.connected"
+          role="status"
+        >
+          <i class="fa-solid" [class.fa-wifi]="toast.connected" [class.fa-plug-circle-xmark]="!toast.connected"></i>
+          <span>{{ toast.message }}</span>
+        </div>
+      }
+
       <!-- ===== Header premium ===== -->
       <header class="eqd-header">
         <div class="eqd-header-text">
@@ -227,22 +240,66 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           </article>
 
-          <!-- Localisation -->
+          <!-- Latitude -->
           <article class="eqd-card">
             <div class="eqd-card-head">
               <span class="eqd-chip eqd-chip-purple"><i class="fa-solid fa-location-dot"></i></span>
-              <span class="eqd-card-label">Localisation</span>
+              <span class="eqd-card-label">Latitude</span>
             </div>
-            <div class="eqd-card-value eqd-coords">{{ equipment.localisation }}</div>
-            <a
-              class="eqd-maps-btn"
-              [href]="'https://www.google.com/maps?q=' + equipment.lienLocalisation"
-              target="_blank"
-              rel="noopener"
-            >
-              <i class="fa-solid fa-arrow-up-right-from-square"></i>
-              <span>Voir sur Google Maps</span>
-            </a>
+            @if (hasGpsFix()) {
+              <div class="eqd-card-value eqd-coords">{{ telemetrieLatitudeDisplay }}</div>
+              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">En attente d'un fix GPS du boîtier</span>
+              </div>
+            }
+          </article>
+
+          <!-- Longitude -->
+          <article class="eqd-card">
+            <div class="eqd-card-head">
+              <span class="eqd-chip eqd-chip-purple"><i class="fa-solid fa-location-dot"></i></span>
+              <span class="eqd-card-label">Longitude</span>
+            </div>
+            @if (hasGpsFix()) {
+              <div class="eqd-card-value eqd-coords">{{ telemetrieLongitudeDisplay }}</div>
+              <a
+                class="eqd-maps-btn"
+                [href]="telemetrieMapsLink"
+                target="_blank"
+                rel="noopener"
+              >
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <span>Voir sur Google Maps</span>
+              </a>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">En attente d'un fix GPS du boîtier</span>
+              </div>
+            }
+          </article>
+
+          <!-- Profondeur de décharge (DoD) -->
+          <article class="eqd-card">
+            <div class="eqd-card-head">
+              <span class="eqd-chip eqd-chip-amber"><i class="fa-solid fa-arrow-trend-down"></i></span>
+              <span class="eqd-card-label">DoD (décharge)</span>
+            </div>
+            @if (batteryDiagnostic()?.dod_percent !== null && batteryDiagnostic()?.dod_percent !== undefined) {
+              <div class="eqd-card-value">{{ batteryDodDisplay }}</div>
+              <div class="eqd-card-meta">Dernier diagnostic batterie</div>
+            } @else {
+              <div class="eqd-card-value eqd-value-empty">—</div>
+              <div class="eqd-card-foot">
+                <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
+                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+              </div>
+            }
           </article>
 
           <!-- Température -->
@@ -880,6 +937,48 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
       background: #FEF1F1;
       color: #E5484D;
       border: 1px solid rgba(239, 68, 68, 0.20);
+    }
+
+    /* ===== Notification flottante : connexion/déconnexion du boîtier ===== */
+    .eqd-esp-toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+      animation: eqd-esp-toast-in 0.25s ease-out;
+    }
+
+    .eqd-esp-toast--connected {
+      background: #E9FBF4;
+      color: #0FA97E;
+      border: 1px solid rgba(32, 201, 151, 0.25);
+    }
+
+    .eqd-esp-toast--disconnected {
+      background: #FFF7ED;
+      color: #D97706;
+      border: 1px solid rgba(217, 119, 6, 0.25);
+    }
+
+    @keyframes eqd-esp-toast-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      .eqd-esp-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
     }
 
     /* ===== Chip d'état blocage (résumé) ===== */
@@ -2268,6 +2367,28 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   private telemetrieBaselineHorodatage: string | null = null;
 
   /**
+   * Notification flottante (bas à droite) signalant la connexion/déconnexion
+   * du boîtier — distincte de statusMessage (feedback bloquer/débloquer).
+   * Suit hasLiveTelemetrie() ci-dessous : true -> "connecté", false ->
+   * "déconnecté", uniquement sur un CHANGEMENT d'état pendant la session en
+   * cours (pas à l'ouverture de la page, qui démarre volontairement sans
+   * télémétrie affichée — voir loadLatestTelemetrie).
+   */
+  protected readonly espConnectionToast = signal<{ message: string; connected: boolean } | null>(null);
+  private espWasConnected = false;
+  private espToastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  private showEspConnectionToast(connected: boolean): void {
+    if (this.espToastTimeout) clearTimeout(this.espToastTimeout);
+    const label = this.equipment?.boitierId ?? this.equipment?.nom ?? 'Le boîtier';
+    this.espConnectionToast.set({
+      message: connected ? `${label} connecté` : `${label} déconnecté`,
+      connected
+    });
+    this.espToastTimeout = setTimeout(() => this.espConnectionToast.set(null), 6000);
+  }
+
+  /**
    * Dernière télémétrie IoT — GET /api/equipements/{backendId}/telemetries.
    * À l'ouverture, on capture la référence existante SANS l'afficher (les
    * cartes restent sur « Donnée non disponible »), puis seule une nouvelle
@@ -2281,6 +2402,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     if (!equipment.backendId) return;
     const backendId = equipment.backendId;
 
+    this.espWasConnected = false;
     this.latestTelemetrie.set(null);
     this.telemetrieBaselineHorodatage = null;
     this.lastTelemetrieReceivedAt = null;
@@ -2308,6 +2430,10 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       this.latestTelemetrie.set(entry);
       this.telemetrieBaselineHorodatage = entry.horodatage;
       this.lastTelemetrieReceivedAt = Date.now();
+      if (!this.espWasConnected) {
+        this.espWasConnected = true;
+        this.showEspConnectionToast(true);
+      }
     }
   }
 
@@ -2317,12 +2443,17 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     const elapsed = Date.now() - this.lastTelemetrieReceivedAt;
     if (elapsed > EquipmentDetailPageComponent.TELEMETRIE_STALE_MS) {
       this.latestTelemetrie.set(null);
+      if (this.espWasConnected) {
+        this.espWasConnected = false;
+        this.showEspConnectionToast(false);
+      }
     }
   }
 
   ngOnDestroy(): void {
     this.telemetriePollingSubscription?.unsubscribe();
     this.batteryDiagnosticSubscription?.unsubscribe();
+    if (this.espToastTimeout) clearTimeout(this.espToastTimeout);
   }
 
   /** Historique de localisation — GET /api/equipements/{id}/localisations. */
@@ -2778,6 +2909,34 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   get telemetrieHumiditeDisplay(): string {
     const v = this.latestTelemetrie()?.humidite;
     return v !== null && v !== undefined ? `${Number(v).toFixed(1)} %` : '—';
+  }
+
+  /**
+   * true seulement si le boîtier a un vrai fix GPS. Un boîtier sans fix
+   * satellite envoie {latitude: 0, longitude: 0} ("Null Island") plutôt que
+   * d'omettre le champ — traité ici comme une absence de donnée, pas comme
+   * une position réelle (le parc SHANGO n'est jamais à 0°,0°).
+   */
+  hasGpsFix(): boolean {
+    const t = this.latestTelemetrie();
+    if (!t || t.latitude === null || t.longitude === null) return false;
+    return t.latitude !== 0 || t.longitude !== 0;
+  }
+
+  get telemetrieLatitudeDisplay(): string {
+    const v = this.latestTelemetrie()?.latitude;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(6)}°` : '—';
+  }
+
+  get telemetrieLongitudeDisplay(): string {
+    const v = this.latestTelemetrie()?.longitude;
+    return v !== null && v !== undefined ? `${Number(v).toFixed(6)}°` : '—';
+  }
+
+  get telemetrieMapsLink(): string {
+    const t = this.latestTelemetrie();
+    if (!t) return '';
+    return `https://www.google.com/maps?q=${t.latitude},${t.longitude}`;
   }
 
   get batteryCapacityDisplay(): string {

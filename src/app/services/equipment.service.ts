@@ -131,6 +131,9 @@ export interface TelemetrieEntry {
   etat_kit: string | null;
   statut_paiement: string | null;
   signal_gsm: number | null;
+  /** Position GPS envoyée par le boîtier avec cette télémétrie (peut être absente tant qu'aucun fix satellite n'a été obtenu). */
+  latitude: number | null;
+  longitude: number | null;
   horodatage: string;
 }
 
@@ -773,6 +776,8 @@ export class EquipmentService {
             etat_kit: latest.etat_kit ?? null,
             statut_paiement: latest.statut_paiement ?? null,
             signal_gsm: latest.signal_gsm != null ? Number(latest.signal_gsm) : null,
+            latitude: latest.latitude != null ? Number(latest.latitude) : null,
+            longitude: latest.longitude != null ? Number(latest.longitude) : null,
             horodatage: latest.horodatage
           };
         }),
