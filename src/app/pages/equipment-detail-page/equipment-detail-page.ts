@@ -220,66 +220,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
           </div>
         </section>
 
-        <!-- ===== Informations générales ===== -->
-        @if (hasInfosGenerales) {
-          <section class="eqd-infos-generales">
-            <header class="eqd-bdiag-head">
-              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
-              <div class="eqd-bdiag-head-text">
-                <h3 class="eqd-bdiag-title">Informations générales</h3>
-              </div>
-            </header>
-            <div class="eqd-infos-grid">
-              <div class="eqd-infos-item">
-                <span class="eqd-infos-key">Type / catégorie</span>
-                <span class="eqd-infos-value">{{ equipment.type }}</span>
-              </div>
-              @if (equipment.marqueModele) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Marque / modèle</span>
-                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
-                </div>
-              }
-              @if (equipment.clientNom) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Nom du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
-                </div>
-              }
-              @if (equipment.clientNumero) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Numéro du client</span>
-                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
-                </div>
-              }
-              @if (equipment.site) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Site / emplacement</span>
-                  <span class="eqd-infos-value">{{ equipment.site }}</span>
-                </div>
-              }
-              @if (equipment.boitierId) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
-                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
-                </div>
-              }
-              @if (equipment.responsable) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Responsable</span>
-                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
-                </div>
-              }
-              @if (equipment.perimetreMetres) {
-                <div class="eqd-infos-item">
-                  <span class="eqd-infos-key">Périmètre autorisé</span>
-                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
-                </div>
-              }
-            </div>
-          </section>
-        }
-
         <!-- ===== Grille des indicateurs ===== -->
         <!-- Ordre voulu : Latitude+Longitude (complémentaires, même ligne),
              DoD+État du kit (même ligne), puis Courant en dernier — la grille
@@ -725,6 +665,66 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             }
           }
         </section>
+
+        <!-- ===== Informations générales ===== -->
+        @if (hasInfosGenerales) {
+          <section class="eqd-infos-generales">
+            <header class="eqd-bdiag-head">
+              <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="eqd-bdiag-head-text">
+                <h3 class="eqd-bdiag-title">Informations générales</h3>
+              </div>
+            </header>
+            <div class="eqd-infos-grid">
+              <div class="eqd-infos-item">
+                <span class="eqd-infos-key">Type / catégorie</span>
+                <span class="eqd-infos-value">{{ equipment.type }}</span>
+              </div>
+              @if (equipment.marqueModele) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Marque / modèle</span>
+                  <span class="eqd-infos-value">{{ equipment.marqueModele }}</span>
+                </div>
+              }
+              @if (equipment.clientNom) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Nom du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNom }}</span>
+                </div>
+              }
+              @if (equipment.clientNumero) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Numéro du client</span>
+                  <span class="eqd-infos-value">{{ equipment.clientNumero }}</span>
+                </div>
+              }
+              @if (equipment.site) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Site / emplacement</span>
+                  <span class="eqd-infos-value">{{ equipment.site }}</span>
+                </div>
+              }
+              @if (equipment.boitierId) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">ID du boîtier SHANGO</span>
+                  <span class="eqd-infos-value">{{ equipment.boitierId }}</span>
+                </div>
+              }
+              @if (equipment.responsable) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Responsable</span>
+                  <span class="eqd-infos-value">{{ equipment.responsable }}</span>
+                </div>
+              }
+              @if (equipment.perimetreMetres) {
+                <div class="eqd-infos-item">
+                  <span class="eqd-infos-key">Périmètre autorisé</span>
+                  <span class="eqd-infos-value">{{ equipment.perimetreMetres }} m autour de la position d'installation</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
       }
     </div>
@@ -1471,6 +1471,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
     .eqd-infos-generales .eqd-bdiag-head {
       padding-bottom: 14px;
       align-items: center;
+      justify-content: flex-start;
     }
 
     .eqd-infos-grid {
@@ -2398,6 +2399,8 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   protected readonly espConnectionToast = signal<{ message: string; connected: boolean } | null>(null);
   private espWasConnected = false;
   private espToastTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** ID (route) de l'équipement affiché — retenu pour recharger l'historique de localisation lors des transitions connecté/déconnecté. */
+  private currentEquipmentId: string | null = null;
 
   private showEspConnectionToast(connected: boolean): void {
     if (this.espToastTimeout) clearTimeout(this.espToastTimeout);
@@ -2422,6 +2425,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   private loadLatestTelemetrie(equipment: Equipment): void {
     if (!equipment.backendId) return;
     const backendId = equipment.backendId;
+    this.currentEquipmentId = equipment.id;
 
     this.espWasConnected = false;
     this.latestTelemetrie.set(null);
@@ -2455,6 +2459,12 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         this.espWasConnected = true;
         this.showEspConnectionToast(true);
       }
+      // Le boîtier est connecté et vient d'envoyer un nouveau point GPS :
+      // on recharge le fil de localisation pour qu'il enregistre le
+      // déplacement d'un point à un autre pendant la session en cours.
+      if (this.currentEquipmentId) {
+        this.loadLocationHistory(this.currentEquipmentId, true);
+      }
     }
   }
 
@@ -2467,6 +2477,9 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       if (this.espWasConnected) {
         this.espWasConnected = false;
         this.showEspConnectionToast(false);
+        // Le boîtier n'est plus connecté : les anciennes positions n'ont
+        // plus de sens à afficher tant qu'il ne s'est pas reconnecté.
+        this.locationHistory.set([]);
       }
     }
   }
@@ -2477,12 +2490,17 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     if (this.espToastTimeout) clearTimeout(this.espToastTimeout);
   }
 
-  /** Historique de localisation — GET /api/equipements/{id}/localisations. */
-  private loadLocationHistory(id: string): void {
-    this.locationHistoryLoading.set(true);
+  /**
+   * Historique de localisation — GET /api/equipements/{id}/localisations.
+   * `silent` évite de réafficher le skeleton de chargement lors des
+   * rafraîchissements déclenchés par l'arrivée d'une nouvelle télémétrie
+   * pendant que le boîtier est déjà connecté (voir applyTelemetrieIfNewer).
+   */
+  private loadLocationHistory(id: string, silent = false): void {
+    if (!silent) this.locationHistoryLoading.set(true);
     this.equipmentService.getEquipmentLocationHistory(id).subscribe({
       next: entries => {
-        this.locationHistory.set(entries);
+        this.locationHistory.set(this.dropHistoryIfDeviceOffline(entries));
         this.locationHistoryLoading.set(false);
         this.locationHistoryError.set(this.equipmentService.locationHistoryError());
       },
@@ -2494,6 +2512,20 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         );
       }
     });
+  }
+
+  /**
+   * Le point le plus récent renvoyé par le backend peut lui-même dater
+   * (boîtier déjà déconnecté avant même l'ouverture de la page) : dans ce
+   * cas on n'affiche pas un ancien trajet comme s'il était toujours valide.
+   * Utilise le même seuil que la détection de déconnexion en direct
+   * (TELEMETRIE_STALE_MS) pour rester cohérent.
+   */
+  private dropHistoryIfDeviceOffline(entries: LocationHistoryEntry[]): LocationHistoryEntry[] {
+    if (entries.length === 0) return entries;
+    const mostRecent = entries[0].date_fin ?? entries[0].date_debut;
+    const elapsed = Date.now() - new Date(mostRecent).getTime();
+    return elapsed > EquipmentDetailPageComponent.TELEMETRIE_STALE_MS ? [] : entries;
   }
 
   /**

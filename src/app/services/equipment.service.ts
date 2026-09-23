@@ -768,10 +768,30 @@ export class EquipmentService {
   }
 
   /**
+   * Distance minimale (mètres) entre deux points GPS consécutifs pour
+   * considérer qu'il y a eu un vrai déplacement. En dessous, l'écart est du
+   * bruit GPS / une micro-vibration (ex. un support qui bouge de quelques
+   * cm) et doit être ignoré ; à partir de 1 m, c'est un déplacement réel.
+   */
+  private static readonly MOVEMENT_THRESHOLD_METERS = 1;
+
+  /** Distance à vol d'oiseau entre deux coordonnées GPS (formule de Haversine). */
+  private static distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /**
    * Regroupe des télémétries triées (plus récente d'abord, comme renvoyé par
-   * le backend) en "séjours" : plusieurs lectures consécutives à la même
-   * position (arrondie à 4 décimales, ~11 m) forment une seule entrée avec
-   * une date de début et de fin, au lieu d'une ligne par télémétrie brute.
+   * le backend) en "séjours" : plusieurs lectures consécutives à moins de
+   * MOVEMENT_THRESHOLD_METERS de distance forment une seule entrée avec une
+   * date de début et de fin, au lieu d'une ligne par télémétrie brute.
    * {latitude:0, longitude:0} (pas de fix GPS) est ignoré, pas traité comme
    * une vraie position — même convention que hasGpsFix() côté page détail.
    */
@@ -782,12 +802,10 @@ export class EquipmentService {
       // Le backend renvoie du plus récent au plus ancien ; on retraite du plus ancien au plus récent pour regrouper dans l'ordre chronologique.
       .reverse();
 
-    const key = (lat: number, lon: number) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
-
     const groups: { lat: number; lon: number; debut: string; fin: string }[] = [];
     for (const point of withFix) {
       const last = groups[groups.length - 1];
-      if (last && key(last.lat, last.lon) === key(point.lat, point.lon)) {
+      if (last && EquipmentService.distanceMeters(last.lat, last.lon, point.lat, point.lon) < EquipmentService.MOVEMENT_THRESHOLD_METERS) {
         last.fin = point.horodatage;
       } else {
         groups.push({ lat: point.lat, lon: point.lon, debut: point.horodatage, fin: point.horodatage });
