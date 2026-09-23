@@ -1,0 +1,1 @@
+function o(e,r){if(e.status===0)return`Backend indisponible : impossible ${r}.`;let s=e.error?.errors,t=s?Object.values(s)[0]?.[0]:void 0;return e.error?.message||t||`Erreur ${e.status} lors de la tentative ${r}.`}export{o as a};
