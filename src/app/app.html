@@ -428,3 +428,49 @@
     </div>
   </div>
 }
+<!-- ===== Alerte IoT en plein écran =====
+     Fenêtre centrale qui fige le reste de l'application tant que l'alerte
+     n'est pas acquittée (la sonnerie s'arrête à l'acquittement). -->
+@if (pendingAlerts().length > 0) {
+  <div class="iot-alert-overlay" role="presentation">
+    <div class="iot-alert-modal" role="alertdialog" aria-modal="true" aria-labelledby="iot-alert-title">
+      <div class="iot-alert-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h2 id="iot-alert-title" class="iot-alert-title">
+        @if (pendingAlerts().length > 1) {
+          {{ pendingAlerts().length }} alertes en cours
+        } @else {
+          Alerte : {{ typeAlerteLabel(pendingAlerts()[0].type_alerte) }}
+        }
+      </h2>
+
+      <div class="iot-alert-list">
+        @for (alerte of pendingAlerts(); track alerte.id) {
+          <div class="iot-alert-item" [class.iot-alert-item--critique]="alerte.gravite === 'ELEVEE'">
+            <div class="iot-alert-item-head">
+              <span class="iot-alert-type">{{ typeAlerteLabel(alerte.type_alerte) }}</span>
+              <span class="iot-alert-gravite">{{ alerte.gravite === 'ELEVEE' ? 'Gravité élevée' : alerte.gravite === 'MOYENNE' ? 'Gravité moyenne' : 'Gravité faible' }}</span>
+            </div>
+            <p class="iot-alert-equipement">
+              <i class="fa-solid fa-solar-panel"></i>
+              {{ alerte.equipement?.nom || alerte.equipement?.reference || 'Équipement' }}
+              @if (alerte.equipement?.reference) { <span class="iot-alert-ref">({{ alerte.equipement?.reference }})</span> }
+            </p>
+            <p class="iot-alert-text">{{ alerteMessage(alerte.type_alerte) }}</p>
+            <p class="iot-alert-time">
+              <i class="fa-regular fa-clock"></i> {{ alerte.horodatage | date: 'dd/MM/yyyy à HH:mm:ss' }}
+            </p>
+            <button type="button" class="iot-alert-btn iot-alert-btn--ghost" (click)="openPendingAlert(alerte)">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Voir l'équipement
+            </button>
+          </div>
+        }
+      </div>
+
+      <button type="button" class="iot-alert-btn iot-alert-btn--primary" (click)="acknowledgeAlertModal()">
+        <i class="fa-solid fa-check"></i> J'ai compris, arrêter l'alarme
+      </button>
+    </div>
+  </div>
+}

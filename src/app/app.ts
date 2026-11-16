@@ -164,17 +164,55 @@ export class App {
     if (this.activeUrl() === '/alerts' || this.showAlertsPanel) {
       ids.forEach(id => this.acknowledgedAlertIds.add(id));
     }
-    const nonAcquittee = visibles.some(a => !this.acknowledgedAlertIds.has(a.id));
-    if (nonAcquittee) {
+    const nonAcquittees = visibles.filter(a => !this.acknowledgedAlertIds.has(a.id));
+    this.pendingAlerts.set(nonAcquittees);
+    this.setBackgroundFrozen(nonAcquittees.length > 0);
+    if (nonAcquittees.length > 0) {
       this.alertSound.start();
     } else {
       this.alertSound.stop();
     }
   }
 
+  /**
+   * Alertes non encore acquittées : affichées dans une fenêtre au centre de
+   * l'écran qui fige le reste de l'application jusqu'à l'acquittement.
+   */
+  protected readonly pendingAlerts = signal<HeaderRealAlerte[]>([]);
+
   private acknowledgeRealAlerts(): void {
     this.realAlerts().forEach(a => this.acknowledgedAlertIds.add(a.id));
+    this.pendingAlerts.set([]);
+    this.setBackgroundFrozen(false);
     this.alertSound.stop();
+  }
+
+  /** Empêche le défilement de l'application derrière la fenêtre d'alerte. */
+  private setBackgroundFrozen(frozen: boolean): void {
+    if (typeof document === 'undefined') return;
+    document.body.style.overflow = frozen ? 'hidden' : '';
+  }
+
+  /** Bouton « J'ai compris » de la fenêtre d'alerte. */
+  protected acknowledgeAlertModal(): void {
+    this.acknowledgeRealAlerts();
+  }
+
+  /** Bouton « Voir l'équipement » : acquitte puis ouvre la fiche concernée. */
+  protected openPendingAlert(alerte: HeaderRealAlerte): void {
+    this.acknowledgeRealAlerts();
+    this.openRealAlert(alerte);
+  }
+
+  protected alerteMessage(type: string): string {
+    switch (type) {
+      case 'BOITIER_OUVERT': return "Le boîtier de l'équipement a été ouvert. Vérifiez qu'il ne s'agit pas d'une intrusion ou d'une manipulation non autorisée.";
+      case 'SURCHAUFFE': return 'La température du kit est anormalement élevée.';
+      case 'TENSION_FAIBLE': return 'La tension de la batterie est anormalement basse.';
+      case 'CHOC': return "Un choc a été détecté sur l'équipement.";
+      case 'MOUVEMENT': return "Un déplacement de l'équipement a été détecté.";
+      default: return "Une anomalie a été détectée sur l'équipement.";
+    }
   }
 
   protected typeAlerteLabel(type: string): string {
