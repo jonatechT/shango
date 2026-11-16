@@ -110,6 +110,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/batteries/{device_id}/diagnostics', [BatterieDiagnosticController::class, 'history'])
             ->name('batteries.diagnostics.history');
+
+        // Bouton « Lancer un diagnostic » : diagnostic IA à partir de la dernière télémétrie du boîtier.
+        Route::post('/batteries/{device_id}/diagnostic', [BatterieDiagnosticController::class, 'lancer'])
+            ->name('batteries.diagnostic.lancer');
     });
 
 

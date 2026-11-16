@@ -4,233 +4,210 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PredictionBatterie;
+use App\Models\Telemetrie;
+use App\Services\BatterieCalculService;
 use App\Services\BatterieIAService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Throwable;
 
+/**
+ * Diagnostic batterie (document 3, partie 1 — backend) :
+ * reçoit les mesures, convertit la tension (÷4), interroge le modèle IA,
+ * calcule SOH / capacité / durée de vie / état / message, puis ENREGISTRE
+ * chaque prédiction : c'est ce qui construit l'historique de la batterie.
+ */
 class BatterieDiagnosticController extends Controller
 {
+    public function __construct(
+        private readonly BatterieIAService $serviceIA,
+        private readonly BatterieCalculService $calcul
+    ) {
+    }
+
     /**
-     * Enregistrer les données d'un diagnostic batterie,
-     * envoyer les données au modèle IA FastAPI,
-     * puis enregistrer les résultats de la prédiction.
+     * POST /api/batterie/diagnostic — mesures envoyées par le boîtier (§3).
+     * `dod_percent` est facultatif : s'il manque, il est estimé depuis la tension.
      */
-    public function store(
-        Request $request,
-        BatterieIAService $serviceIA
-    ): JsonResponse {
-        // ============================================================
-        // 1. VALIDATION DES DONNÉES REÇUES
-        // ============================================================
-
+    public function store(Request $request): JsonResponse
+    {
         $validated = $request->validate([
-            'device_id' => [
-                'required',
-                'string',
-                'max:191',
-            ],
-
-            'voltage_v' => [
-                'required',
-                'numeric',
-            ],
-
-            'current_a' => [
-                'required',
-                'numeric',
-            ],
-
-            'temperature_c' => [
-                'required',
-                'numeric',
-            ],
-
-            'dod_percent' => [
-                'required',
-                'numeric',
-                'min:0',
-                'max:100',
-            ],
+            'device_id' => ['required', 'string', 'max:191'],
+            'voltage_v' => ['required', 'numeric'],
+            'current_a' => ['required', 'numeric'],
+            'temperature_c' => ['required', 'numeric'],
+            'dod_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        // ============================================================
-        // 2. RÉCUPÉRATION ET CONVERSION DES DONNÉES
-        // ============================================================
-
-        $deviceId = trim($validated['device_id']);
-
-        $voltage = (float) $validated['voltage_v'];
-        $current = (float) $validated['current_a'];
-        $temperature = (float) $validated['temperature_c'];
-        $dod = (float) $validated['dod_percent'];
-
-        // ============================================================
-        // 3. PRÉPARATION DES DONNÉES POUR L'IA
-        // ============================================================
-
-        $donneesIA = $serviceIA->preparerDonnees(
-            $voltage,
-            $current,
-            $temperature,
-            $dod
+        return $this->diagnostiquer(
+            trim($validated['device_id']),
+            (float) $validated['voltage_v'],
+            (float) $validated['current_a'],
+            (float) $validated['temperature_c'],
+            isset($validated['dod_percent']) ? (float) $validated['dod_percent'] : null
         );
+    }
 
-        // La première valeur correspond à la tension par cellule.
-        $voltageCellule = $donneesIA[0];
+    /**
+     * POST /api/batteries/{device_id}/diagnostic — bouton « Lancer un
+     * diagnostic » de la page détail : utilise la dernière télémétrie reçue
+     * du boîtier comme mesures d'entrée.
+     */
+    public function lancer(string $device_id): JsonResponse
+    {
+        $telemetrie = Telemetrie::where('device_id', $device_id)
+            ->orderBy('horodatage', 'desc')
+            ->first();
 
-        // ============================================================
-        // 4. APPEL DU MODÈLE IA FASTAPI
-        // ============================================================
+        if (!$telemetrie) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune télémétrie reçue pour ce boîtier : impossible de lancer le diagnostic.',
+            ], 404);
+        }
 
+        if ($telemetrie->tension === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La dernière télémétrie ne contient pas de tension batterie : diagnostic impossible.',
+            ], 422);
+        }
+
+        return $this->diagnostiquer(
+            $device_id,
+            (float) $telemetrie->tension,
+            (float) ($telemetrie->courant ?? 0),
+            // Le DHT22 du boîtier mesure l'air autour de la batterie ; 25 °C
+            // (température de référence des fiches LiFePO4) s'il est absent.
+            (float) ($telemetrie->temperature ?? 25),
+            null,
+            [
+                'humidite_pourcent' => $telemetrie->humidite !== null ? (float) $telemetrie->humidite : null,
+                'statut_paiement' => $telemetrie->statut_paiement,
+            ]
+        );
+    }
+
+    /**
+     * GET /api/batteries/{device_id}/diagnostics — historique complet (§7, §8),
+     * du plus récent au plus ancien, avec les informations dérivées.
+     */
+    public function history(string $device_id): JsonResponse
+    {
+        $historique = PredictionBatterie::where('device_id', $device_id)
+            ->orderBy('date_heure', 'desc')
+            ->get()
+            ->map(fn (PredictionBatterie $p) => $this->formater($this->completer($p)))
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'device_id' => $device_id,
+            'nombre_diagnostics' => $historique->count(),
+            'historique' => $historique,
+        ], 200);
+    }
+
+    /**
+     * Chaîne complète du document : conversion → IA → calculs → enregistrement.
+     */
+    private function diagnostiquer(
+        string $deviceId,
+        float $voltage,
+        float $current,
+        float $temperature,
+        ?float $dodRecu,
+        array $complements = []
+    ): JsonResponse {
+        // §4 — DoD (reçu ou estimé) et tension par cellule pour le modèle.
+        [$dod, $sourceDod] = $this->calcul->resoudreDod($dodRecu, $voltage);
+        $voltageCellule = $this->calcul->tensionParCellule($voltage);
+
+        // §5 — Prédiction IA (la conversion ÷4 est refaite côté FastAPI,
+        // qui reçoit la tension brute du pack).
         try {
-            $resultatIA = $serviceIA->predire(
-                $deviceId,
-                $voltage,
-                $current,
-                $temperature,
-                $dod
-            );
+            $resultatIA = $this->serviceIA->predire($deviceId, $voltage, $current, $temperature, $dod);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
-
-                'message' => 'Impossible d\'obtenir le diagnostic IA.',
-
+                'message' => 'Le service IA de diagnostic est injoignable. Vérifiez qu\'il est démarré, puis réessayez.',
                 'erreur' => $e->getMessage(),
-
-                'donnees_recues' => [
-                    'device_id' => $deviceId,
-                    'voltage_v' => $voltage,
-                    'current_a' => $current,
-                    'temperature_c' => $temperature,
-                    'dod_percent' => $dod,
-                ],
             ], 503);
         }
 
-        // ============================================================
-        // 5. RÉCUPÉRATION DES RÉSULTATS IA
-        // ============================================================
-
         $sohClass = $resultatIA['soh_class'] ?? null;
-
-        $sohClassId = isset($resultatIA['soh_class_id'])
-            ? (int) $resultatIA['soh_class_id']
-            : null;
-
+        $sohClassId = isset($resultatIA['soh_class_id']) ? (int) $resultatIA['soh_class_id'] : null;
         $sohProbabilities = $resultatIA['soh_probabilities'] ?? null;
+        $confidence = isset($resultatIA['confidence']) ? (float) $resultatIA['confidence'] : null;
+        $rulCycles = isset($resultatIA['rul_cycles']) ? (int) $resultatIA['rul_cycles'] : null;
 
-        $confidence = isset($resultatIA['confidence'])
-            ? (float) $resultatIA['confidence']
-            : null;
+        // §6 — Informations dérivées.
+        $derivees = $this->calcul->informationsDerivees($sohProbabilities, $sohClass, $sohClassId, $rulCycles);
 
-        $rulCycles = isset($resultatIA['rul_cycles'])
-            ? (int) $resultatIA['rul_cycles']
-            : null;
-
-        // ============================================================
-        // 6. ENREGISTREMENT EN BASE DE DONNÉES
-        // ============================================================
-
+        // §7 — Enregistrement (tension BRUTE conservée).
         $prediction = PredictionBatterie::create([
             'device_id' => $deviceId,
-
             'date_heure' => now(),
-
-            // Données reçues
             'voltage_v' => $voltage,
             'current_a' => $current,
             'temperature_c' => $temperature,
             'dod_percent' => $dod,
-
-            // Anciennes colonnes IA
-            // Elles restent null car le modèle actuel
-            // ne fournit pas directement ces informations.
-            'soh_pourcent' => null,
-            'capacite_ah' => null,
-            'rul_jours' => null,
-
-            // Résultats réels du modèle IA
+            'soh_pourcent' => $derivees['soh_pourcent'],
+            'capacite_ah' => $derivees['capacite_ah'],
+            'rul_jours' => $derivees['rul_jours'],
+            'etat' => $derivees['etat'],
             'soh_class' => $sohClass,
             'soh_class_id' => $sohClassId,
             'soh_probabilities' => $sohProbabilities,
             'confidence' => $confidence,
             'rul_cycles' => $rulCycles,
-
-            // État métier non défini pour le moment.
-            'etat' => null,
         ]);
-
-        // ============================================================
-        // 7. RÉPONSE API
-        // ============================================================
 
         return response()->json([
             'success' => true,
-
-            'message' =>
-                'Diagnostic batterie effectué avec succès.',
-
-            'prediction_id' =>
-                $prediction->id,
-
-            'donnees_recues' => [
-                'device_id' => $deviceId,
-                'voltage_v' => $voltage,
-                'current_a' => $current,
-                'temperature_c' => $temperature,
-                'dod_percent' => $dod,
-            ],
-
-            'donnees_envoyees_a_l_ia' => [
-                'device_id' => $deviceId,
-                'voltage_v' => $voltage,
-                'voltage_per_cell' => $voltageCellule,
-                'current_a' => $current,
-                'temperature_c' => $temperature,
-                'dod_percent' => $dod,
-            ],
-
-            'resultats_ia' => [
-                'soh_class' => $sohClass,
-                'soh_class_id' => $sohClassId,
-                'soh_probabilities' => $sohProbabilities,
-                'confidence' => $confidence,
-                'rul_cycles' => $rulCycles,
-            ],
-
-            'prediction_enregistree' => [
-                'id' => $prediction->id,
-                'device_id' => $prediction->device_id,
-                'date_heure' => $prediction->date_heure,
-            ],
+            'message' => 'Diagnostic batterie effectué avec succès.',
+            'data' => array_merge($this->formater($prediction), $complements, [
+                'dod_source' => $sourceDod,
+                'voltage_par_cellule' => round($voltageCellule, 3),
+            ]),
         ], 200);
     }
 
     /**
-     * Récupérer l'historique des diagnostics
-     * d'une batterie à partir de son device_id.
+     * Anciennes lignes enregistrées sans informations dérivées (SOH null) :
+     * on les calcule à partir des résultats IA stockés et on les persiste.
      */
-    public function history(string $device_id): JsonResponse
+    private function completer(PredictionBatterie $p): PredictionBatterie
     {
-        $historique = PredictionBatterie::where(
-            'device_id',
-            $device_id
-        )
-            ->orderBy('date_heure', 'desc')
-            ->get();
+        if ($p->soh_pourcent !== null || ($p->soh_class === null && $p->soh_class_id === null)) {
+            return $p;
+        }
 
-        return response()->json([
-            'success' => true,
+        $derivees = $this->calcul->informationsDerivees(
+            $p->soh_probabilities,
+            $p->soh_class,
+            $p->soh_class_id,
+            $p->rul_cycles
+        );
 
-            'device_id' => $device_id,
+        $p->fill($derivees);
+        $p->save();
 
-            'nombre_diagnostics' =>
-                $historique->count(),
+        return $p;
+    }
 
-            'historique' =>
-                $historique,
-        ], 200);
+    /** Ligne d'historique + message technicien et alerte de surchauffe. */
+    private function formater(PredictionBatterie $p): array
+    {
+        $etat = $p->etat ?? ($p->soh_pourcent !== null ? $this->calcul->etat((float) $p->soh_pourcent) : null);
+
+        return array_merge($p->toArray(), [
+            'date_heure' => $p->date_heure?->toIso8601String(),
+            'etat' => $etat,
+            'rul_jours' => $p->rul_jours !== null ? (int) $p->rul_jours : null,
+            'capacite_nominale_ah' => BatterieCalculService::CAPACITE_NOMINALE_AH,
+            'message' => $this->calcul->message($etat, $p->temperature_c),
+            'alerte_surchauffe' => $this->calcul->surchauffe($p->temperature_c),
+        ]);
     }
 }

@@ -102,11 +102,17 @@ export interface BatteryCurrentDiagnostic {
   etat: string | null;
   /** Message de maintenance fourni par le backend. */
   message: string | null;
+  /** Capacité nominale de la batterie (Ah) — 24 Ah pour Alioth. */
+  capacite_nominale_ah?: number | null;
+  /** true si la température dépasse le seuil de surchauffe (45 °C). */
+  alerte_surchauffe?: boolean;
+  /** Origine du DoD : 'boitier' (envoyé par l'ESP32) ou 'tension' (estimé par le backend). */
+  dod_source?: 'boitier' | 'tension' | null;
 }
 
 /**
  * Point d'historique batterie fourni par le backend :
- *   GET /api/batterie/{device_id}/historique
+ *   GET /api/batteries/{device_id}/diagnostics (trié ici du plus ancien au plus récent)
  */
 export interface BatteryHistoryEntry {
   date_heure: string;
@@ -114,6 +120,14 @@ export interface BatteryHistoryEntry {
   capacite: number | null;
   rul_jours: number | null;
   temperature: number | null;
+  dod?: number | null;
+  etat?: string | null;
+}
+
+/** Diagnostic courant + historique, issus d'un seul appel backend. */
+export interface BatteryData {
+  current: BatteryCurrentDiagnostic | null;
+  history: BatteryHistoryEntry[];
 }
 
 /**
@@ -676,52 +690,112 @@ export class EquipmentService {
   }
 
   /**
-   * Diagnostic batterie courant, dérivé du dernier point de l'historique réel
-   * (voir `fetchBatteryHistoryRaw`). `humidite_pourcent`, `statut_paiement`
-   * et `message` restent `null` : pas encore fournis par le backend
-   * (§2 du rapport d'écarts).
+   * Les diagnostics batterie sont indexés par l'identifiant du BOÎTIER
+   * (`device_id`, ex. SH-001), pas par la référence d'équipement utilisée
+   * dans l'URL de la page : on résout l'un vers l'autre.
    */
-  getBatteryCurrentDiagnostic(deviceId: string): Observable<BatteryCurrentDiagnostic | null> {
+  private resolveBatteryDeviceId(id: string): string {
+    return this.getById(id)?.boitierId || id;
+  }
+
+  private static toNumber(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /** Ligne brute du backend → diagnostic courant affiché par la page. */
+  private mapBatteryDiagnostic(raw: any): BatteryCurrentDiagnostic {
+    const n = EquipmentService.toNumber;
+    return {
+      device_id: raw.device_id,
+      date_heure: raw.date_heure,
+      voltage_v: n(raw.voltage_v),
+      current_a: n(raw.current_a),
+      temperature_c: n(raw.temperature_c),
+      dod_percent: n(raw.dod_percent),
+      humidite_pourcent: n(raw.humidite_pourcent),
+      statut_paiement: raw.statut_paiement ?? null,
+      soh_pourcent: n(raw.soh_pourcent),
+      capacite_restante_ah: n(raw.capacite_ah),
+      duree_estimee_jours: n(raw.rul_jours),
+      etat: raw.etat ?? null,
+      message: raw.message ?? null,
+      capacite_nominale_ah: n(raw.capacite_nominale_ah),
+      alerte_surchauffe: !!raw.alerte_surchauffe,
+      dod_source: raw.dod_source ?? null
+    };
+  }
+
+  /** Ligne brute du backend → point de courbe d'historique. */
+  private mapBatteryHistoryEntry(raw: any): BatteryHistoryEntry {
+    const n = EquipmentService.toNumber;
+    return {
+      date_heure: raw.date_heure,
+      soh: n(raw.soh_pourcent),
+      capacite: n(raw.capacite_ah),
+      rul_jours: n(raw.rul_jours),
+      temperature: n(raw.temperature_c),
+      dod: n(raw.dod_percent),
+      etat: raw.etat ?? null
+    };
+  }
+
+  /**
+   * Dernier diagnostic enregistré + historique complet, en un seul appel
+   * (GET /api/batteries/{device_id}/diagnostics). Ne déclenche AUCUNE
+   * nouvelle prédiction IA : affiche ce qui est déjà en base.
+   * L'historique est renvoyé du plus ancien au plus récent (ordre des courbes).
+   */
+  getBatteryData(id: string): Observable<BatteryData> {
     if (EQUIPMENT_API_CONFIG.useMock) {
-      return of(mockBatteryCurrentDiagnostic(deviceId));
+      return of({ current: mockBatteryCurrentDiagnostic(id), history: mockBatteryHistory(id) });
     }
-    return this.fetchBatteryHistoryRaw(deviceId).pipe(
-      map((list): BatteryCurrentDiagnostic | null => {
-        const latest = list[0];
-        if (!latest) return null;
-        return {
-          device_id: latest.device_id,
-          date_heure: latest.date_heure,
-          voltage_v: latest.voltage_v ?? null,
-          current_a: latest.current_a ?? null,
-          temperature_c: latest.temperature_c ?? null,
-          dod_percent: latest.dod_percent ?? null,
-          humidite_pourcent: null,
-          statut_paiement: null,
-          soh_pourcent: latest.soh_pourcent ?? null,
-          capacite_restante_ah: latest.capacite_ah ?? null,
-          duree_estimee_jours: latest.rul_jours ?? null,
-          etat: latest.etat ?? null,
-          message: null
-        };
-      })
+    return this.fetchBatteryHistoryRaw(this.resolveBatteryDeviceId(id)).pipe(
+      map(list => ({
+        current: list[0] ? this.mapBatteryDiagnostic(list[0]) : null,
+        history: list.map(raw => this.mapBatteryHistoryEntry(raw)).reverse()
+      }))
     );
   }
 
-  /** Historique batterie — dérivé de `fetchBatteryHistoryRaw` (voir ce commentaire). */
-  getBatteryHistory(deviceId: string): Observable<BatteryHistoryEntry[]> {
+  /** Diagnostic batterie courant (dernier enregistré). */
+  getBatteryCurrentDiagnostic(id: string): Observable<BatteryCurrentDiagnostic | null> {
+    return this.getBatteryData(id).pipe(map(d => d.current));
+  }
+
+  /** Historique batterie, du plus ancien au plus récent. */
+  getBatteryHistory(id: string): Observable<BatteryHistoryEntry[]> {
+    return this.getBatteryData(id).pipe(map(d => d.history));
+  }
+
+  /**
+   * Lance un NOUVEAU diagnostic IA (bouton « Lancer un diagnostic ») :
+   * POST /api/batteries/{device_id}/diagnostic. Le backend prend la dernière
+   * télémétrie du boîtier, estime le DoD depuis la tension, convertit la
+   * tension par cellule (÷4), interroge le modèle, calcule SOH / capacité /
+   * durée de vie / état / message et enregistre le résultat dans l'historique.
+   */
+  launchBatteryDiagnostic(id: string): Observable<BatteryCurrentDiagnostic | null> {
     if (EQUIPMENT_API_CONFIG.useMock) {
-      return of(mockBatteryHistory(deviceId));
+      return of(mockBatteryCurrentDiagnostic(id));
     }
-    return this.fetchBatteryHistoryRaw(deviceId).pipe(
-      map(list => list.map(raw => ({
-        date_heure: raw.date_heure,
-        soh: raw.soh_pourcent ?? null,
-        capacite: raw.capacite_ah ?? null,
-        rul_jours: raw.rul_jours ?? null,
-        temperature: raw.temperature_c ?? null
-      })))
-    );
+    this.batteryApiError.set(null);
+    const deviceId = this.resolveBatteryDeviceId(id);
+    return this.http
+      .post<{ data: any }>(`${environment.apiUrl}/batteries/${encodeURIComponent(deviceId)}/diagnostic`, {})
+      .pipe(
+        map(res => (res?.data ? this.mapBatteryDiagnostic(res.data) : null)),
+        catchError((error: HttpErrorResponse) => {
+          const backendMessage = typeof error.error?.message === 'string' ? error.error.message : null;
+          if (backendMessage && error.status !== 0) {
+            this.batteryApiError.set(backendMessage);
+          } else {
+            this.handleBatteryError(error);
+          }
+          return of(null);
+        })
+      );
   }
 
   /**

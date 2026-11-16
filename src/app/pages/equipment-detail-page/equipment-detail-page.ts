@@ -278,7 +278,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </div>
             @if (batteryDiagnostic()?.dod_percent !== null && batteryDiagnostic()?.dod_percent !== undefined) {
               <div class="eqd-card-value">{{ batteryDodDisplay }}</div>
-              <div class="eqd-card-meta">Dernier diagnostic batterie</div>
+              <div class="eqd-card-meta">{{ batteryDodSourceDisplay }} · dernier diagnostic</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
@@ -507,7 +507,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                 <span class="eqd-bdiag-dur-key">Durée de vie estimée</span>
                 <div class="eqd-bdiag-dur-main">
                   <span class="eqd-bdiag-dur-value">{{ batteryDurationDisplay }}</span>
-                  <span class="eqd-bdiag-dur-range">Estimation fournie par le backend</span>
+                  <span class="eqd-bdiag-dur-range">Cycles restants prédits par l'IA (1 cycle / jour)</span>
                 </div>
               </div>
               <div class="eqd-bdiag-duration">
@@ -518,6 +518,16 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                 </div>
               </div>
             </div>
+
+            <!-- ===== Alerte surchauffe (document 3 §9) ===== -->
+            @if (batteryOverheat) {
+              <div class="eqd-bdiag-message eqd-bdiag-msg--danger" role="alert">
+                <span class="eqd-bdiag-msg-icon"><i class="fa-solid fa-temperature-arrow-up"></i></span>
+                <span class="eqd-bdiag-msg-text">
+                  Surchauffe : {{ batteryTemperatureDisplay }} (seuil 45 °C). Vérifier la ventilation du kit.
+                </span>
+              </div>
+            }
 
             <!-- ===== Message de maintenance ===== -->
             <div [class]="'eqd-bdiag-message ' + batteryMessageClass">
@@ -533,7 +543,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             <span class="eqd-chip eqd-chip-blue eqd-chip-lg"><i class="fa-solid fa-chart-line"></i></span>
             <div class="eqd-bdiag-head-text">
               <h3 class="eqd-bdiag-title">Historique de la batterie</h3>
-              <p class="eqd-bdiag-sub">Évolution du SOH (état de santé de la batterie).</p>
+              <p class="eqd-bdiag-sub">Évolution du SOH, de la capacité et de la température à chaque diagnostic.</p>
             </div>
           </header>
 
@@ -2536,18 +2546,30 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     return this.locationHistory().some(entry => !entry.date_fin);
   }
 
-  /** Récupère le diagnostic courant — GET /api/batterie/{device_id}/actuel. */
+  /**
+   * Lance un nouveau diagnostic IA — POST /api/batteries/{device_id}/diagnostic.
+   * Le backend calcule DoD, SOH, capacité, durée de vie, état et message, puis
+   * enregistre le résultat : on recharge ensuite l'historique pour la courbe.
+   */
   private loadBatteryDiagnostic(id: string): void {
     this.batteryLoading.set(true);
     this.batteryError.set(null);
     this.batteryDiagnosticSubscription = this.equipmentService
-      .getBatteryCurrentDiagnostic(id)
+      .launchBatteryDiagnostic(id)
       .subscribe({
         next: result => {
           this.batteryDiagnosticSubscription = null;
           this.batteryLoading.set(false);
-          this.batteryDiagnostic.set(result);
           this.batteryError.set(this.equipmentService.batteryApiError());
+          if (result) {
+            this.batteryDiagnostic.set(result);
+            this.loadBatteryHistory(id);
+          } else {
+            // Échec du nouveau diagnostic : on affiche la cause (service IA
+            // injoignable, pas de télémétrie…). Les diagnostics précédents
+            // restent visibles dans l'historique.
+            this.batteryDiagnostic.set(null);
+          }
         },
         error: () => {
           this.batteryDiagnosticSubscription = null;
@@ -2562,8 +2584,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
   /**
    * Lance le diagnostic batterie à la demande (bouton « Lancer un diagnostic »).
-   * Appelle GET /api/batterie/{device_id}/actuel — aucune prédiction côté frontend,
-   * le backend reste l'unique source des résultats.
+   * Aucune prédiction côté frontend : le backend reste l'unique source des résultats.
    */
   lancerDiagnostic(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -2592,13 +2613,20 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Récupère l'historique — GET /api/batterie/{device_id}/historique. */
+  /**
+   * Récupère l'historique enregistré — GET /api/batteries/{device_id}/diagnostics.
+   * Au chargement de la page, le dernier diagnostic enregistré alimente aussi
+   * les cartes (DoD, SOH, capacité…) sans relancer de prédiction IA.
+   */
   private loadBatteryHistory(id: string): void {
     this.batteryHistoryLoading.set(true);
-    this.equipmentService.getBatteryHistory(id).subscribe({
-      next: list => {
+    this.equipmentService.getBatteryData(id).subscribe({
+      next: data => {
         this.batteryHistoryLoading.set(false);
-        this.batteryHistory.set(list);
+        this.batteryHistory.set(data.history);
+        if (!this.batteryDiagnostic() && !this.batteryLoading() && data.current) {
+          this.batteryDiagnostic.set(data.current);
+        }
       },
       error: () => {
         this.batteryHistoryLoading.set(false);
@@ -2910,13 +2938,31 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     return v !== null && v !== undefined ? `${Number(v).toFixed(1)} %` : '—';
   }
 
+  /** Origine du DoD affiché (envoyé par le boîtier ou estimé depuis la tension). */
+  get batteryDodSourceDisplay(): string {
+    return this.batteryDiagnostic()?.dod_source === 'boitier'
+      ? 'Mesuré par le boîtier'
+      : 'Estimé depuis la tension (courbe LiFePO4)';
+  }
+
   get batteryHumidityDisplay(): string {
-    const v = this.batteryDiagnostic()?.humidite_pourcent;
+    const v = this.batteryDiagnostic()?.humidite_pourcent ?? this.latestTelemetrie()?.humidite;
     return v !== null && v !== undefined ? `${Number(v).toFixed(0)} %` : '—';
   }
 
   get batteryPaiementDisplay(): string {
-    return this.batteryDiagnostic()?.statut_paiement ?? '—';
+    const statut = this.batteryDiagnostic()?.statut_paiement ?? this.latestTelemetrie()?.statut_paiement;
+    if (statut === 'OK') return 'À jour';
+    if (statut === 'EN_RETARD') return 'En retard';
+    if (statut === 'BLOQUE') return 'Bloqué';
+    return statut ?? '—';
+  }
+
+  /** §9 du document : alerte visuelle si surchauffe (> 45 °C). */
+  get batteryOverheat(): boolean {
+    const d = this.batteryDiagnostic();
+    if (!d) return false;
+    return !!d.alerte_surchauffe || (d.temperature_c !== null && d.temperature_c > 45);
   }
 
   /** Couleur du statut de paiement (vert = à jour, rouge = impayé, ambre = en retard). */
@@ -2993,13 +3039,19 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   }
 
   get batteryCapacityDisplay(): string {
-    const v = this.batteryDiagnostic()?.capacite_restante_ah;
-    return v !== null && v !== undefined ? `${Number(v).toFixed(1)} Ah` : '—';
+    const d = this.batteryDiagnostic();
+    const v = d?.capacite_restante_ah;
+    if (v === null || v === undefined) return '—';
+    const nominale = d?.capacite_nominale_ah ?? 24;
+    return `${Number(v).toFixed(1)} Ah / ${nominale}`;
   }
 
   get batteryDurationDisplay(): string {
     const v = this.batteryDiagnostic()?.duree_estimee_jours;
-    return v !== null && v !== undefined ? `~${v} jours` : '—';
+    if (v === null || v === undefined) return '—';
+    const jours = Math.round(Number(v));
+    const annees = jours / 365;
+    return annees >= 1 ? `~${jours} jours (≈ ${annees.toFixed(1)} ans)` : `~${jours} jours`;
   }
 
   get batteryDateDisplay(): string {

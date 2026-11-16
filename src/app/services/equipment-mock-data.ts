@@ -27,17 +27,21 @@ export function mockBatteryCurrentDiagnostic(deviceId: string): BatteryCurrentDi
   return {
     device_id: deviceId,
     date_heure: new Date().toISOString(),
-    voltage_v: 12.46,
+    voltage_v: 13.2,
     current_a: 2.8,
     temperature_c: 36.9,
-    dod_percent: 38,
+    dod_percent: 30,
     humidite_pourcent: 42,
     statut_paiement: 'Payé',
     soh_pourcent: 84,
-    capacite_restante_ah: 102.4,
-    duree_estimee_jours: 190,
+    // Document 3 §6 : capacité = SOH / 100 × 24 Ah ; durée = cycles / 1 cycle par jour.
+    capacite_restante_ah: 20.2,
+    duree_estimee_jours: 810,
     etat: 'Bon',
-    message: 'Batterie en bon état, aucun remplacement nécessaire pour le moment.'
+    message: 'Batterie en bon état. Aucune action.',
+    capacite_nominale_ah: 24,
+    alerte_surchauffe: false,
+    dod_source: 'tension'
   };
 }
 
@@ -45,12 +49,14 @@ export function mockBatteryHistory(deviceId: string): BatteryHistoryEntry[] {
   const now = Date.now();
   const points: BatteryHistoryEntry[] = [];
   for (let i = HISTORY_POINTS - 1; i >= 0; i--) {
+    const soh = Math.round((86 - i * 0.07) * 10) / 10;
     points.push({
       date_heure: new Date(now - i * 3 * DAY_MS).toISOString(),
-      soh: Math.round((86 - i * 0.07) * 10) / 10,
-      capacite: Math.round((105 - i * 0.09) * 100) / 100,
-      rul_jours: Math.round(210 - i * 0.7),
-      temperature: Math.round((34 + Math.sin(i / 3) * 4) * 10) / 10
+      soh,
+      capacite: Math.round((soh / 100) * 24 * 10) / 10,
+      rul_jours: Math.round(810 + i * 3),
+      temperature: Math.round((34 + Math.sin(i / 3) * 4) * 10) / 10,
+      dod: Math.round((30 + Math.cos(i / 2) * 15) * 10) / 10
     });
   }
   return points;
