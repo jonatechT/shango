@@ -431,7 +431,7 @@
 <!-- ===== Alerte IoT en plein écran =====
      Fenêtre centrale qui fige le reste de l'application tant que l'alerte
      n'est pas acquittée (la sonnerie s'arrête à l'acquittement). -->
-@if (pendingAlerts().length > 0) {
+@if (pendingAlerts().length > 0 && !isAuthPage()) {
   <div class="iot-alert-overlay" role="presentation">
     <div class="iot-alert-modal" role="alertdialog" aria-modal="true" aria-labelledby="iot-alert-title">
       <div class="iot-alert-icon">

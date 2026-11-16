@@ -543,6 +543,8 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
         // encore actives (ex. boîtier toujours ouvert).
         this.realAlertes = data.filter(
           a => a.equipement_connecte === true &&
+            a.type_alerte !== 'TENSION_FAIBLE' && // ignorée pour le moment
+
             (a.id > this.baselineMaxAlertId! || a.statut === 'nouvelle' || a.statut === 'en_cours')
         );
         this.realAlertesLoading = false;

@@ -78,6 +78,8 @@ export class App {
   /** Alertes IoT réelles (statut "nouvelle") — GET /api/alertes, sondées en continu. */
   protected readonly realAlerts = signal<HeaderRealAlerte[]>([]);
   private static readonly REAL_ALERTS_POLL_MS = 4000;
+  /** Types d'alertes non signalés pour le moment (ni cloche, ni fenêtre, ni sonnerie). */
+  private static readonly IGNORED_ALERT_TYPES = ['TENSION_FAIBLE'];
 
   constructor(
     private authService: AuthService,
@@ -97,6 +99,11 @@ export class App {
       // Ouvrir l'onglet Alertes vaut acquittement : la sonnerie s'arrête.
       if (this.activeUrl() === '/alerts') {
         this.acknowledgeRealAlerts();
+      }
+      // Retour à la page de connexion (déconnexion) : plus aucune alerte.
+      if (this.isAuthPage()) {
+        this.realAlerts.set([]);
+        this.updateAlertSound([]);
       }
     });
     // La cloche d'alertes doit refléter les vraies alertes IoT (pas seulement
@@ -139,8 +146,18 @@ export class App {
         // reçue il y a moins de 30 s) sont signalées : sans boîtier en ligne,
         // aucune alerte. Le backend clôture l'alerte « boîtier ouvert » à la
         // fermeture du boîtier.
+        // Rien tant que l'utilisateur n'a pas passé la page de connexion.
+        if (this.isAuthPage()) {
+          this.realAlerts.set([]);
+          this.updateAlertSound([]);
+          return;
+        }
         const data = res.data || [];
-        const visibles = data.filter(a => a.statut === 'nouvelle' && a.equipement_connecte === true);
+        const visibles = data.filter(
+          a => a.statut === 'nouvelle' &&
+            a.equipement_connecte === true &&
+            !App.IGNORED_ALERT_TYPES.includes(a.type_alerte)
+        );
         this.realAlerts.set(visibles);
         this.updateAlertSound(visibles);
       },
