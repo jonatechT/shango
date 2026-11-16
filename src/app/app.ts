@@ -11,6 +11,7 @@ import { StructureService } from './superadmin/services/structure.service';
 import { MaintenanceService, NotificationItem, MaintenanceItem } from './services/maintenance.service';
 import { EquipmentService, Equipment } from './services/equipment.service';
 import { ThemeService } from './services/theme.service';
+import { AlertSoundService } from './services/alert-sound.service';
 import { environment } from '../environments/environment';
 
 /** Alerte réelle reçue du backend (bridge IoT) — GET /api/alertes. Sous-ensemble utilisé par la cloche du header. */
@@ -20,6 +21,8 @@ interface HeaderRealAlerte {
   gravite: 'FAIBLE' | 'MOYENNE' | 'ELEVEE';
   statut: string;
   horodatage: string;
+  /** true si le boîtier a envoyé une télémétrie dans les 30 dernières secondes (calculé par le backend). */
+  equipement_connecte?: boolean;
   equipement?: { reference?: string; nom?: string } | null;
 }
 
@@ -74,7 +77,7 @@ export class App {
 
   /** Alertes IoT réelles (statut "nouvelle") — GET /api/alertes, sondées en continu. */
   protected readonly realAlerts = signal<HeaderRealAlerte[]>([]);
-  private static readonly REAL_ALERTS_POLL_MS = 8000;
+  private static readonly REAL_ALERTS_POLL_MS = 4000;
 
   constructor(
     private authService: AuthService,
@@ -83,13 +86,18 @@ export class App {
     private maintenanceService: MaintenanceService,
     private equipmentService: EquipmentService,
     private themeService: ThemeService,
-    private http: HttpClient
+    private http: HttpClient,
+    private alertSound: AlertSoundService
   ) {
     this.isSidebarCollapsed = this.loadSidebarState();
     this.themeService.init();
     // Suivre la navigation pour l'état actif du menu (y compris au clic et au retour navigateur)
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.activeUrl.set(e.urlAfterRedirects.split('?')[0].replace(/\/$/, ''));
+      // Ouvrir l'onglet Alertes vaut acquittement : la sonnerie s'arrête.
+      if (this.activeUrl() === '/alerts') {
+        this.acknowledgeRealAlerts();
+      }
     });
     // La cloche d'alertes doit refléter les vraies alertes IoT (pas seulement
     // les alertes mockées du module Maintenance) : sondage en continu tant
@@ -127,14 +135,46 @@ export class App {
     if (!this.authService.isLoggedIn() || this.baselineMaxAlertId === null) return;
     this.http.get<{ data: HeaderRealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
-        // Toutes les alertes encore actives (non prises en charge), même
-        // antérieures à l'ouverture de l'app : un boîtier toujours ouvert
-        // doit rester signalé. Le backend clôture l'alerte à la fermeture.
+        // Seules les alertes actives d'un équipement CONNECTÉ (télémétrie
+        // reçue il y a moins de 30 s) sont signalées : sans boîtier en ligne,
+        // aucune alerte. Le backend clôture l'alerte « boîtier ouvert » à la
+        // fermeture du boîtier.
         const data = res.data || [];
-        this.realAlerts.set(data.filter(a => a.statut === 'nouvelle'));
+        const visibles = data.filter(a => a.statut === 'nouvelle' && a.equipement_connecte === true);
+        this.realAlerts.set(visibles);
+        this.updateAlertSound(visibles);
       },
       error: () => { /* silencieux : ne doit pas perturber le reste du header */ }
     });
+  }
+
+  /** Alertes déjà vues (cloche cliquée ou onglet Alertes ouvert) : elles ne sonnent plus. */
+  private readonly acknowledgedAlertIds = new Set<number>();
+
+  /**
+   * Sonne tant qu'une alerte visible n'a pas été acquittée. Une alerte qui
+   * disparaît (boîtier refermé ou déconnecté) est oubliée : si elle
+   * réapparaît à la reconnexion du boîtier, elle sonne de nouveau.
+   */
+  private updateAlertSound(visibles: HeaderRealAlerte[]): void {
+    const ids = new Set(visibles.map(a => a.id));
+    for (const id of [...this.acknowledgedAlertIds]) {
+      if (!ids.has(id)) this.acknowledgedAlertIds.delete(id);
+    }
+    if (this.activeUrl() === '/alerts' || this.showAlertsPanel) {
+      ids.forEach(id => this.acknowledgedAlertIds.add(id));
+    }
+    const nonAcquittee = visibles.some(a => !this.acknowledgedAlertIds.has(a.id));
+    if (nonAcquittee) {
+      this.alertSound.start();
+    } else {
+      this.alertSound.stop();
+    }
+  }
+
+  private acknowledgeRealAlerts(): void {
+    this.realAlerts().forEach(a => this.acknowledgedAlertIds.add(a.id));
+    this.alertSound.stop();
   }
 
   protected typeAlerteLabel(type: string): string {
@@ -301,6 +341,8 @@ export class App {
   }
 
   protected toggleAlertsPanel(): void {
+    // Cliquer sur la cloche acquitte les alertes en cours : la sonnerie s'arrête.
+    this.acknowledgeRealAlerts();
     this.showAlertsPanel = !this.showAlertsPanel;
     if (this.showAlertsPanel) {
       this.showNotifications = false;

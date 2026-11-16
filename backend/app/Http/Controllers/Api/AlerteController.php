@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Alerte;
 use App\Models\Equipement;
+use App\Models\Telemetrie;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -182,6 +183,26 @@ class AlerteController extends Controller
         $alertes = $query
             ->orderBy('horodatage', 'desc')
             ->get();
+
+        // =================================================
+        // ÉQUIPEMENT CONNECTÉ ?
+        // =================================================
+        // Un boîtier envoie une télémétrie toutes les 10 s : s'il en a envoyé
+        // une dans les 30 dernières secondes, il est considéré connecté.
+        // Le frontend ne signale que les alertes des équipements connectés.
+
+        $connectes = Telemetrie::where('created_at', '>=', now()->subSeconds(30))
+            ->distinct()
+            ->pluck('equipement_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $alertes->each(function (Alerte $alerte) use ($connectes) {
+            $alerte->setAttribute(
+                'equipement_connecte',
+                in_array((int) $alerte->equipement_id, $connectes, true)
+            );
+        });
 
         // =================================================
         // RÉPONSE

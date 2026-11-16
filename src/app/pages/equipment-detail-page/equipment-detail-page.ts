@@ -2343,6 +2343,8 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
    * un seuil plus court que l'intervalle réel du boîtier.
    */
   private static readonly TELEMETRIE_STALE_MS = 15000;
+  /** Âge maximal d'une télémétrie (horodatage du boîtier) pour être considérée « en direct ». */
+  private static readonly TELEMETRIE_LIVE_MAX_AGE_MS = 30000;
   /** Horodatage navigateur (Date.now()) de la dernière télémétrie affichée. */
   private lastTelemetrieReceivedAt: number | null = null;
   /**
@@ -2414,10 +2416,14 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   /** N'affiche une télémétrie que si elle est plus récente que la référence connue. */
   private applyTelemetrieIfNewer(entry: TelemetrieEntry | null): void {
     if (!entry) return;
+    const recue = new Date(entry.horodatage).getTime();
     const isNewer =
       !this.telemetrieBaselineHorodatage ||
-      new Date(entry.horodatage).getTime() > new Date(this.telemetrieBaselineHorodatage).getTime();
-    if (isNewer) {
+      recue > new Date(this.telemetrieBaselineHorodatage).getTime();
+    // Une télémétrie ancienne (boîtier pas encore connecté) ne doit jamais
+    // être affichée comme « en direct » — ex. État du kit « En marche ».
+    const isRecente = !isNaN(recue) && Date.now() - recue < EquipmentDetailPageComponent.TELEMETRIE_LIVE_MAX_AGE_MS;
+    if (isNewer && isRecente) {
       this.latestTelemetrie.set(entry);
       this.telemetrieBaselineHorodatage = entry.horodatage;
       this.lastTelemetrieReceivedAt = Date.now();
@@ -2678,8 +2684,8 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         if (result) {
           this.setStatusMessage(
             willBlock
-              ? "L'équipement a été bloqué avec succès."
-              : "L'équipement a été débloqué avec succès.",
+              ? 'Commande de blocage envoyée au boîtier : le relais coupe le kit (confirmation dans « État du kit »).'
+              : 'Commande de déblocage envoyée au boîtier : le relais remet le kit en marche (confirmation dans « État du kit »).',
             'success'
           );
         } else {

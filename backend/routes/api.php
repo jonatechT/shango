@@ -66,6 +66,12 @@ Route::get('/status/{device_id}', [StatusController::class, 'show'])
     ->middleware('shango.api')
     ->name('status.show');
 
+// File des commandes BLOQUER/DEBLOQUER — le Bridge la relève en boucle
+// et publie chaque commande en MQTT (shango/<id>/command) vers l'ESP32.
+Route::get('/bridge/commandes', [CommandeController::class, 'enAttentePourBridge'])
+    ->middleware('shango.api')
+    ->name('bridge.commandes');
+
 
 // =====================================================
 // ROUTES PROTÉGÉES

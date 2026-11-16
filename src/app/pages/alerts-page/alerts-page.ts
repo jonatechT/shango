@@ -22,6 +22,7 @@ interface RealAlerte {
   statut: string;
   valeur: number | null;
   horodatage: string;
+  equipement_connecte?: boolean;
   equipement?: { nom?: string; reference?: string } | null;
 }
 
@@ -489,7 +490,7 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
   ) {}
 
   private realAlertesPollingSubscription: Subscription | null = null;
-  private static readonly ALERTES_POLL_MS = 10000;
+  private static readonly ALERTES_POLL_MS = 4000;
   /**
    * Plus grand `id` d'alerte déjà connu au moment de l'ouverture de la page —
    * seules les alertes plus récentes (id supérieur) sont affichées, pour ne
@@ -537,10 +538,12 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
     this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
         const data = res.data || [];
-        // Alertes reçues depuis l'ouverture + toutes celles encore actives
-        // (ex. boîtier toujours ouvert), même plus anciennes.
+        // Alertes en direct : uniquement celles d'un équipement connecté
+        // (télémétrie de moins de 30 s), reçues pendant la session ou
+        // encore actives (ex. boîtier toujours ouvert).
         this.realAlertes = data.filter(
-          a => a.id > this.baselineMaxAlertId! || a.statut === 'nouvelle' || a.statut === 'en_cours'
+          a => a.equipement_connecte === true &&
+            (a.id > this.baselineMaxAlertId! || a.statut === 'nouvelle' || a.statut === 'en_cours')
         );
         this.realAlertesLoading = false;
       },

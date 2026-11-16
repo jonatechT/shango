@@ -750,6 +750,65 @@ def run_flask():
 
 
 # =====================================================
+# RELÈVE DES COMMANDES (API -> MQTT)
+# =====================================================
+# Le serveur (AWS) ne peut pas joindre ce PC : c'est le bridge qui vient
+# chercher les commandes BLOQUER/DEBLOQUER en file côté API, puis les publie
+# sur shango/<id>/command. L'ESP32 actionne le relais et confirme son
+# nouvel état sur shango/<id>/status.
+
+COMMANDES_POLL_S = float(os.getenv("SHANGO_COMMANDES_POLL_S", "2"))
+
+
+def poll_commandes_loop():
+
+    url = f"{API_BASE_URL}/bridge/commandes"
+    headers = {"Accept": "application/json"}
+    if API_TOKEN:
+        headers["X-API-Key"] = API_TOKEN
+
+    log.info("Relève des commandes : GET %s toutes les %ss", url, COMMANDES_POLL_S)
+
+    while True:
+        time.sleep(COMMANDES_POLL_S)
+
+        client = mqtt_client_ref["client"]
+
+        # Sans broker, on laisse les commandes en file côté API.
+        if client is None or not client.is_connected():
+            continue
+
+        try:
+            resp = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT_S)
+        except requests.RequestException as exc:
+            log.warning("Relève des commandes impossible : %s", exc)
+            continue
+
+        if resp.status_code != 200:
+            log.warning("Relève des commandes : HTTP %s", resp.status_code)
+            continue
+
+        for cmd in resp.json().get("data", []):
+            id_appareil = cmd.get("id_appareil")
+            commande = (cmd.get("commande") or "").upper()
+            if not id_appareil or commande not in ("BLOQUER", "DEBLOQUER"):
+                continue
+
+            topic = TOPIC_COMMAND_TEMPLATE.format(id_appareil=id_appareil)
+            message = {
+                "commande": commande,
+                "emis_par": cmd.get("emis_par"),
+                "horodatage": int(datetime.now(timezone.utc).timestamp()),
+            }
+            result = client.publish(topic, json.dumps(message), qos=1)
+
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                log.info("[%s] Commande %s publiée sur %s", id_appareil, commande, topic)
+            else:
+                log.error("[%s] Échec publication de %s (code %s)", id_appareil, commande, result.rc)
+
+
+# =====================================================
 # MAIN
 # =====================================================
 
@@ -868,6 +927,16 @@ def main():
     )
 
     flask_thread.start()
+
+
+    # ================================================
+    # RELÈVE DES COMMANDES (API -> MQTT)
+    # ================================================
+
+    threading.Thread(
+        target=poll_commandes_loop,
+        daemon=True
+    ).start()
 
 
     # ================================================

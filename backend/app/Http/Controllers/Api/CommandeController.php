@@ -7,6 +7,7 @@ use App\Models\Commande;
 use App\Models\Equipement;
 use App\Services\BridgeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CommandeController extends Controller
 {
@@ -68,7 +69,38 @@ class CommandeController extends Controller
         }
 
         // =================================================
-        // 4. PRÉPARER LA COMMANDE POUR LE BRIDGE
+        // 4. MISE EN FILE (bridge sans adresse publique)
+        // =================================================
+        // Le bridge tourne sur un PC sans adresse joignable depuis le serveur :
+        // la commande est mise en file « en_attente » et le bridge vient la
+        // chercher (GET /api/bridge/commandes) pour la publier en MQTT vers
+        // l'ESP32, qui actionne le relais. L'appel direct au bridge n'est
+        // utilisé que si SHANGO_BRIDGE_URL est configurée.
+
+        if (empty(config('services.shango_bridge.url'))) {
+            // Une seule commande en attente par boîtier : la plus récente gagne.
+            Commande::where('device_id', $equipement->device_id)
+                ->where('statut', 'en_attente')
+                ->update(['statut' => 'remplacee']);
+
+            $commande = Commande::create([
+                'equipement_id' => $equipement->id,
+                'device_id' => $equipement->device_id,
+                'commande' => $validated['commande'],
+                'emis_par' => $validated['emis_par'],
+                'raison' => $validated['raison'] ?? null,
+                'statut' => 'en_attente',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Commande enregistrée : le Bridge IoT la transmettra au boîtier.',
+                'data' => $commande,
+            ], 202);
+        }
+
+        // =================================================
+        // 4 bis. PRÉPARER LA COMMANDE POUR LE BRIDGE (appel direct)
         // =================================================
 
         $commandeBridge = [
@@ -150,6 +182,48 @@ class CommandeController extends Controller
             'message' => 'Commande reçue et transmise au Bridge MQTT avec succès.',
             'data' => $commande,
         ], 201);
+    }
+
+    /**
+     * GET /api/bridge/commandes — appelé en boucle par le Bridge IoT
+     * (authentification X-API-Key). Renvoie les commandes en attente et les
+     * marque « transmise ». Une commande non récupérée sous 2 minutes expire :
+     * on n'applique pas un blocage périmé au retour d'un bridge arrêté.
+     */
+    public function enAttentePourBridge()
+    {
+        Commande::where('statut', 'en_attente')
+            ->where('created_at', '<', now()->subMinutes(2))
+            ->update(['statut' => 'expiree']);
+
+        $commandes = DB::transaction(function () {
+            $lignes = Commande::where('statut', 'en_attente')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($lignes->isNotEmpty()) {
+                Commande::whereIn('id', $lignes->pluck('id'))
+                    ->update([
+                        'statut' => 'transmise',
+                        'reponse_bridge' => 'Récupérée par le bridge le ' . now()->toDateTimeString(),
+                    ]);
+            }
+
+            return $lignes;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $commandes->map(fn (Commande $c) => [
+                'id' => $c->id,
+                'id_appareil' => $c->device_id,
+                'commande' => $c->commande,
+                'emis_par' => $c->emis_par,
+                'raison' => $c->raison,
+                'horodatage' => $c->created_at?->timestamp,
+            ])->values(),
+        ]);
     }
 
     /**
