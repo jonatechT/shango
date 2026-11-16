@@ -52,3 +52,6 @@ serve.err
 
 # Temporary clone for pushing frontend
 SHANGO_remote_check/
+
+# Secrets de production AWS (generes sur l'instance)
+deploy/aws/.env

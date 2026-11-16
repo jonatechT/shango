@@ -1,0 +1,84 @@
+# SHANGO en production sur une seule instance EC2 (Docker Compose).
+#
+#   api  : backend Laravel (../../backend, Dockerfile existant), écoute sur :80
+#   ai   : service FastAPI SOH/RUL (../../ai), accessible uniquement par `api`
+#   db   : PostgreSQL 16, données persistées dans le volume `pgdata`
+#
+# Le HTTPS est assuré devant l'instance par CloudFront (voir README.md) :
+# ici tout est en HTTP sur le réseau interne Docker.
+#
+# Lancement : docker compose up -d --build   (depuis ce dossier, .env présent)
+
+name: shango
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-shango}
+      POSTGRES_USER: ${DB_USERNAME:-shango_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans deploy/aws/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ai:
+    build: ../../ai
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+
+  api:
+    build: ../../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Apache écoute sur ce port (docker/entrypoint.sh) ; publié en 80 sur l'hôte.
+      PORT: "80"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-shango}
+      DB_USERNAME: ${DB_USERNAME:-shango_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSLMODE: disable
+      # Service IA joint par son nom de service sur le réseau Docker.
+      BATTERIE_IA_URL: http://ai:8000
+      LOG_CHANNEL: stderr
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      CACHE_STORE: database
+      FILESYSTEM_DISK: local
+    ports:
+      - "80:80"
+    volumes:
+      # Photos d'équipements (storage/app/public) : survivent aux redéploiements.
+      - storage_app:/var/www/html/storage/app
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+volumes:
+  pgdata:
+  storage_app:
