@@ -1,5 +1,5 @@
 name: Deploy to GitHub Pages
-# Deploy shango frontend to GitHub Pages (jonatecht.github.io/shango)
+# Deploy shango frontend to GitHub Pages (https://shango-solar.com)
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/shango/browser
-          cname: false
+          cname: shango-solar.com
           force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'

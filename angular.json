@@ -34,7 +34,7 @@
                                                                                                                 "src/styles.scss"
                                                                                                             ],
                                                                                                  "outputMode":  "static",
-                                                                                                 "baseHref":  "/shango/",
+                                                                                                 "baseHref":  "/",
                                                                                                  "allowedCommonJsDependencies":  [
                                                                                                                                      "leaflet",
                                                                                                                                      "canvg",

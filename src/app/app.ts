@@ -1,4 +1,4 @@
-// Deployed to GitHub Pages at https://jonatecht.github.io/shango/
+// Déployé sur GitHub Pages : https://shango-solar.com (ancienne adresse jonatecht.github.io/shango redirigée)
 import { Component, signal } from '@angular/core';
 import { NgIf, DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
