@@ -455,52 +455,6 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                 <span class="eqd-bdiag-state-hint">{{ batterySohHint }}</span>
               </div>
             </div>
-<!-- ===== Mesures capteurs ===== -->
-            <div class="eqd-bdiag-measures">
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--blue"><i class="fa-solid fa-bolt"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Tension du pack</span>
-                  <span class="eqd-bdiag-measure-value">{{ batteryVoltageDisplay }}</span>
-                </div>
-              </div>
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--green"><i class="fa-solid fa-microchip"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Courant</span>
-                  <span class="eqd-bdiag-measure-value">{{ batteryCurrentDisplay }}</span>
-                </div>
-              </div>
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--orange"><i class="fa-solid fa-temperature-half"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Température</span>
-                  <span class="eqd-bdiag-measure-value">{{ batteryTemperatureDisplay }}</span>
-                </div>
-              </div>
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--red"><i class="fa-solid fa-arrow-trend-down"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Profondeur de décharge (DoD)</span>
-                  <span class="eqd-bdiag-measure-value">{{ batteryDodDisplay }}</span>
-                </div>
-              </div>
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--cyan"><i class="fa-solid fa-droplet"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Humidité</span>
-                  <span class="eqd-bdiag-measure-value">{{ batteryHumidityDisplay }}</span>
-                </div>
-              </div>
-              <div class="eqd-bdiag-measure">
-                <span class="eqd-bdiag-measure-icon eqd-bdiag-measure-icon--purple"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-                <div class="eqd-bdiag-measure-text">
-                  <span class="eqd-bdiag-measure-key">Statut paiement</span>
-                  <span [class]="'eqd-bdiag-measure-value ' + paiementStatusClass">{{ batteryPaiementDisplay }}</span>
-                </div>
-              </div>
-            </div>
-
             <!-- ===== Capacité + durée de vie ===== -->
             <div class="eqd-bdiag-duration-row">
               <div class="eqd-bdiag-duration">
