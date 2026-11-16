@@ -151,6 +151,10 @@ class BatterieCalculService
             if (str_contains($l, 'bon')) {
                 return self::ETAT_BON;
             }
+            // Libellé générique de l'API IA sans fichier de mapping : « Classe 0 », « Classe 1 »…
+            if ($classeId === null && preg_match('/(\d+)/', $l, $m)) {
+                $classeId = (int) $m[1];
+            }
         }
 
         // Encodage du modèle : 0 = Bon, 1 = A Surveiller, 2 = A Remplacer.
