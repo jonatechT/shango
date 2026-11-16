@@ -1,20 +1,18 @@
 # Bridge SHANGO
 
-Le pont MQTT (boîtier IoT) <-> HTTP (backend Laravel sur Render).
+Le pont MQTT (boîtier IoT) <-> HTTP (API Laravel AWS exposée par CloudFront).
 
 ## Setup actuel : sur le PC de l'utilisateur
 
-Décidé le 2026-09-22 : pas de carte bancaire disponible, ce qui exclut les
-VM cloud "always free" habituelles (Oracle, Google, Azure en demandent une
-pour vérifier l'identité, même sans rien facturer). Le Bridge tourne donc en
-local, exposé via un tunnel Cloudflare gratuit.
+Le Bridge tourne en local. Il envoie la télémétrie vers l'API AWS via CloudFront.
+Un tunnel Cloudflare n'est nécessaire que pour recevoir des commandes à distance.
 
 ### 1. Lancer le Bridge
 
 ```bash
 cd bridge
 pip install -r requirements.txt
-cp .env.example .env   # puis remplir .env (clés, voir plus bas)
+cp .env.example .env   # puis renseigner SHANGO_API_TOKEN (clé AWS, voir plus bas)
 python shango_bridge.py
 ```
 
@@ -24,27 +22,24 @@ les variables à chaque lancement.
 ### 2. L'exposer sur Internet (pour `/commande`, optionnel)
 
 Seule la réception de télémétrie/alertes/statut a besoin que le Bridge
-appelle Render (sortant, aucune exposition nécessaire). **Exposer le Bridge
+appelle l'API AWS via CloudFront (sortant, aucune exposition nécessaire). **Exposer le Bridge
 n'est utile que pour le blocage à distance d'un kit** (Laravel -> Bridge ->
 MQTT), une fonctionnalité secondaire.
 
 Sans domaine, seul le tunnel rapide Cloudflare (`*.trycloudflare.com`,
 gratuit, sans compte) est possible — l'URL change à chaque redémarrage.
-`tunnel_sync.py` automatise la mise à jour de cette URL sur Render :
+`tunnel_sync.py` ne configure que l'ancien déploiement Render; ne le lancez
+pas pour ce déploiement AWS. Les variables `RENDER_API_KEY` et
+`RENDER_SERVICE_ID` ne sont nécessaires qu'à cet ancien script. Pour AWS, les
+commandes distantes doivent être configurées séparément sur l'instance; cette
+étape n'est pas nécessaire pour envoyer la télémétrie.
 
-```bash
-python tunnel_sync.py
-```
+### Clé API AWS
 
-Nécessite dans `.env` : `RENDER_API_KEY` (Account Settings -> API Keys sur
-render.com — **donne accès à tout le compte Render, à garder secrète**),
-`RENDER_SERVICE_ID` et `CLOUDFLARED_PATH`. Voir les commentaires de
-`.env.example`.
-
-⚠️ Chaque redémarrage du tunnel redéploie tout le backend sur Render (~30 s
-de coupure de toute l'application, pas seulement du Bridge) — c'est le prix
-pour ne pas avoir à recopier l'URL à la main. Ne lancez ce script que quand
-c'est nécessaire.
+Sur l'instance EC2, la clé `SHANGO_IOT_API_KEY` est conservée dans
+`/opt/shango/SECRETS.env` (lecture avec `sudo`). Copiez sa valeur dans
+`SHANGO_API_TOKEN` du fichier `.env` local du Bridge. Ne partagez pas cette clé
+et ne la commitez jamais.
 
 ### Une seule instance à la fois
 

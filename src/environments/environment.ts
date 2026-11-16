@@ -3,11 +3,9 @@
  * Le frontend étant hébergé statiquement, `apiUrl` doit pointer vers l'URL
  * publique du backend Laravel.
  *
- * Backend hébergé sur Render (service `shango-api`, cf. render.yaml).
- * Plan gratuit : le service s'endort après ~15 min d'inactivité, la première
- * requête suivante peut prendre environ une minute.
+ * Backend Laravel hébergé sur EC2 et exposé en HTTPS via CloudFront.
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://shango-api.onrender.com/api'
+  apiUrl: 'https://d2kl9a9hqtmf5q.cloudfront.net/api'
 };
