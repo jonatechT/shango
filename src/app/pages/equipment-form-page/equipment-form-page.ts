@@ -91,48 +91,11 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
                           <i class="fa-solid fa-check"></i>
                         }
                       </li>
-                      <li
-                        class="eqf-select-option"
-                        role="option"
-                        [class.eqf-select-option--selected]="type === 'Véhicule'"
-                        (mousedown)="$event.preventDefault(); selectType('Véhicule')"
-                      >
-                        <span>Véhicule</span>
-                        @if (type === 'Véhicule') {
-                          <i class="fa-solid fa-check"></i>
-                        }
-                      </li>
-                      <li
-                        class="eqf-select-option"
-                        role="option"
-                        [class.eqf-select-option--selected]="type === 'Autre'"
-                        (mousedown)="$event.preventDefault(); selectType('Autre')"
-                      >
-                        <span>Autre</span>
-                        @if (type === 'Autre') {
-                          <i class="fa-solid fa-check"></i>
-                        }
-                      </li>
                     </ul>
                   }
                 </div>
                 @if (submitted() && !type) {
                   <span class="eqf-error">Le type est obligatoire.</span>
-                }
-                @if (type === 'Autre') {
-                  <div class="eqf-type-custom">
-                    <input
-                      id="eq-type-autre"
-                      name="typeAutre"
-                      type="text"
-                      class="eqf-input"
-                      placeholder="Précisez le type (ex : Pompe, Convertisseur…)"
-                      [(ngModel)]="typeAutre"
-                    />
-                    @if (submitted() && !typeAutre.trim()) {
-                      <span class="eqf-error">Veuillez préciser le type.</span>
-                    }
-                  </div>
                 }
               </div>
 
@@ -394,7 +357,6 @@ import { EquipmentService, Equipment } from '../../services/equipment.service';
 export class EquipmentFormPageComponent {
   nom = '';
   type = '';
-  typeAutre = '';
   protected typeOpen = signal(false);
   miseEnLigne = '';
   description = '';
@@ -436,9 +398,9 @@ export class EquipmentFormPageComponent {
 
     // Vérifications locales (chaque champ obligatoire est validé individuellement).
     const nom = this.nom.trim();
-    const typeFinal = this.type === 'Autre' ? this.typeAutre.trim() : this.type;
+    const typeFinal = this.type;
 
-    if (!nom || !this.type || (this.type === 'Autre' && !typeFinal)) {
+    if (!nom || !typeFinal) {
       this.showMessage('Veuillez remplir tous les champs obligatoires.', 'error');
       return;
     }

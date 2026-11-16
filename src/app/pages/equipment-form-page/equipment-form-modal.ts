@@ -11,9 +11,7 @@ import {
 
 /** Types d'équipement proposés (liste fermée : pas de saisie libre). */
 const TYPES_EQUIPEMENT = [
-  'Kit solaire',
-  'Véhicule',
-  'Pelle hydraulique'
+  'Kit solaire'
 ];
 
 /**
