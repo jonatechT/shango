@@ -139,7 +139,7 @@ doit renvoyer `{"user":…,"token":"…"}`.
    commit + push sur `main` → GitHub Pages se redéploie (2 à 3 minutes).
 2. Bridge IoT (`shango_bridge.py`) : pointer l'URL de l'API vers CloudFront et renseigner
    `SHANGO_IOT_API_KEY` avec la valeur de `/opt/shango/SECRETS.env`.
-3. Se connecter sur https://jonatecht.github.io/shango/ avec le superadmin, créer
+3. Se connecter sur https://shango-solar.com/ avec le superadmin, créer
    l'organisation puis l'équipement **SH-001** (identifiant du boîtier dans `config.h`).
 
 
