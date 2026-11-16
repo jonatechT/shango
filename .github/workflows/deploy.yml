@@ -9,6 +9,7 @@ on:
       - 'backend/**'
       - 'render.yaml'
       - 'deploy/**'
+      - 'bridge/**'
   workflow_dispatch:
 
 permissions:

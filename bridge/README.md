@@ -19,6 +19,10 @@ python shango_bridge.py
 Il charge `.env` automatiquement (`python-dotenv`) — pas besoin de redéfinir
 les variables à chaque lancement.
 
+Sous Windows, `start-bridge.bat` (double-clic) lance le Bridge dans une fenêtre et le
+relance automatiquement s'il s'arrête. Pour qu'il démarre à chaque ouverture de session,
+créer un raccourci vers ce fichier dans le dossier Démarrage (`Win+R` → `shell:startup`).
+
 ### 2. L'exposer sur Internet (pour `/commande`, optionnel)
 
 Seule la réception de télémétrie/alertes/statut a besoin que le Bridge
