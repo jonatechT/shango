@@ -47,6 +47,34 @@ class AlerteDetectionService
                 $telemetrie->tension
             );
         }
+
+        // =================================================
+        // 3. BOÎTIER OUVERT
+        // =================================================
+        // Ouvert  -> alerte ELEVEE (une seule tant qu'il reste ouvert).
+        // Fermé   -> l'alerte active est clôturée automatiquement, pour
+        //            qu'une prochaine ouverture déclenche une NOUVELLE alerte
+        //            (sinon l'ancienne, restée « nouvelle », bloque tout).
+
+        if ($telemetrie->boitier === 'OUVERT') {
+            $this->creerAlerte(
+                $telemetrie,
+                'BOITIER_OUVERT',
+                'ELEVEE',
+                null
+            );
+        } elseif ($telemetrie->boitier === 'FERME') {
+            $this->cloturerAlertes($telemetrie, 'BOITIER_OUVERT');
+        }
+    }
+
+    /** Passe à « resolue » les alertes actives d'un type dont la condition a disparu. */
+    private function cloturerAlertes(Telemetrie $telemetrie, string $type): void
+    {
+        Alerte::where('equipement_id', $telemetrie->equipement_id)
+            ->where('type_alerte', $type)
+            ->whereIn('statut', ['nouvelle', 'en_cours'])
+            ->update(['statut' => 'resolue']);
     }
 
     /**

@@ -513,6 +513,7 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
   }
 
   private startRealAlertesPolling(): void {
+    this.loadRealAlertes(true);
     this.realAlertesPollingSubscription = interval(AlertsPageComponent.ALERTES_POLL_MS).subscribe(() => {
       this.loadRealAlertes(true);
     });
@@ -536,7 +537,11 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
     this.http.get<{ data: RealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
         const data = res.data || [];
-        this.realAlertes = data.filter(a => a.id > this.baselineMaxAlertId!);
+        // Alertes reçues depuis l'ouverture + toutes celles encore actives
+        // (ex. boîtier toujours ouvert), même plus anciennes.
+        this.realAlertes = data.filter(
+          a => a.id > this.baselineMaxAlertId! || a.statut === 'nouvelle' || a.statut === 'en_cours'
+        );
         this.realAlertesLoading = false;
       },
       error: () => {

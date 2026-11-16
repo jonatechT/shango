@@ -278,12 +278,12 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </div>
             @if (batteryDiagnostic()?.dod_percent !== null && batteryDiagnostic()?.dod_percent !== undefined) {
               <div class="eqd-card-value">{{ batteryDodDisplay }}</div>
-              <div class="eqd-card-meta">{{ batteryDodSourceDisplay }} · dernier diagnostic</div>
+              <div class="eqd-card-meta">{{ batteryDodSourceDisplay }}</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+                <span class="eqd-card-meta">{{ latestTelemetrie() ? 'Diagnostic en cours…' : 'Aucune télémétrie reçue' }}</span>
               </div>
             }
           </article>
@@ -301,7 +301,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">Lancer un diagnostic pour mesurer</span>
+                <span class="eqd-card-meta">Aucune télémétrie reçue</span>
               </div>
             }
           </article>
@@ -398,6 +398,8 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
                 class="eqd-btn eqd-bdiag-launch"
                 [class.eqd-btn-primary]="!batteryLoading()"
                 [class.eqd-btn-danger]="batteryLoading()"
+                [disabled]="!batteryLoading() && !latestTelemetrie()"
+                [title]="latestTelemetrie() ? '' : 'Disponible quand le boîtier est connecté'"
                 (click)="basculerDiagnostic()"
               >
                 @if (batteryLoading()) {
@@ -2422,6 +2424,9 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       if (!this.espWasConnected) {
         this.espWasConnected = true;
         this.showEspConnectionToast(true);
+        // Le boîtier vient de se connecter : diagnostic batterie automatique
+        // sur cette télémétrie, pour que DoD / SOH / RUL arrivent avec elle.
+        this.lancerDiagnostic();
       }
       // Le boîtier est connecté et vient d'envoyer un nouveau point GPS :
       // on recharge le fil de localisation pour qu'il enregistre le
@@ -2444,6 +2449,13 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         // Le boîtier n'est plus connecté : les anciennes positions n'ont
         // plus de sens à afficher tant qu'il ne s'est pas reconnecté.
         this.locationHistory.set([]);
+        // Idem pour le diagnostic batterie : il disparaît avec la télémétrie.
+        this.batteryDiagnosticSubscription?.unsubscribe();
+        this.batteryDiagnosticSubscription = null;
+        this.batteryLoading.set(false);
+        this.batteryDiagnostic.set(null);
+        this.batteryDiagnosticLaunched.set(false);
+        this.batteryDiagnosticArrete.set(false);
       }
     }
   }
@@ -2569,8 +2581,8 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
   /**
    * Récupère l'historique enregistré — GET /api/batteries/{device_id}/diagnostics.
-   * Au chargement de la page, le dernier diagnostic enregistré alimente aussi
-   * les cartes (DoD, SOH, capacité…) sans relancer de prédiction IA.
+   * Les cartes DoD / SOH / RUL ne sont PAS alimentées ici : elles n'apparaissent
+   * qu'avec la télémétrie en direct (diagnostic lancé à la connexion du boîtier).
    */
   private loadBatteryHistory(id: string): void {
     this.batteryHistoryLoading.set(true);
@@ -2578,9 +2590,6 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       next: data => {
         this.batteryHistoryLoading.set(false);
         this.batteryHistory.set(data.history);
-        if (!this.batteryDiagnostic() && !this.batteryLoading() && data.current) {
-          this.batteryDiagnostic.set(data.current);
-        }
       },
       error: () => {
         this.batteryHistoryLoading.set(false);
@@ -2591,6 +2600,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
   /** Titre de l'état « diagnostic indisponible » (non lancé, arrêté, erreur ou absence de données). */
   get batteryUnavailableTitle(): string {
+    if (!this.latestTelemetrie()) return 'En attente du boîtier';
     if (this.batteryDiagnosticArrete()) return 'Diagnostic arrêté';
     if (!this.batteryDiagnosticLaunched()) return 'Aucun diagnostic lancé';
     if (this.batteryError()) return 'Diagnostic momentanément indisponible';
@@ -2598,6 +2608,9 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   }
 
   get batteryUnavailableMessage(): string {
+    if (!this.latestTelemetrie()) {
+      return 'Le diagnostic batterie (DoD, SOH, durée de vie) se lance automatiquement dès que le boîtier envoie sa télémétrie.';
+    }
     if (this.batteryDiagnosticArrete()) {
       return 'Le diagnostic a été arrêté. Relancez-le quand vous le souhaitez.';
     }

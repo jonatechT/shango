@@ -113,6 +113,7 @@ export class App {
       next: res => {
         const data = res.data || [];
         this.baselineMaxAlertId = data.length > 0 ? Math.max(...data.map(a => a.id)) : 0;
+        this.refreshRealAlerts();
         interval(App.REAL_ALERTS_POLL_MS).subscribe(() => this.refreshRealAlerts());
       },
       error: () => {
@@ -126,10 +127,11 @@ export class App {
     if (!this.authService.isLoggedIn() || this.baselineMaxAlertId === null) return;
     this.http.get<{ data: HeaderRealAlerte[] }>(`${environment.apiUrl}/alertes`).subscribe({
       next: res => {
+        // Toutes les alertes encore actives (non prises en charge), même
+        // antérieures à l'ouverture de l'app : un boîtier toujours ouvert
+        // doit rester signalé. Le backend clôture l'alerte à la fermeture.
         const data = res.data || [];
-        this.realAlerts.set(
-          data.filter(a => a.statut === 'nouvelle' && a.id > this.baselineMaxAlertId!)
-        );
+        this.realAlerts.set(data.filter(a => a.statut === 'nouvelle'));
       },
       error: () => { /* silencieux : ne doit pas perturber le reste du header */ }
     });
