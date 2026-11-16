@@ -7,5 +7,5 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://d2kl9a9hqtmf5q.cloudfront.net/api'
+  apiUrl: 'https://api.shango-solar.com/api'
 };

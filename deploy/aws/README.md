@@ -142,6 +142,18 @@ doit renvoyer `{"user":…,"token":"…"}`.
 3. Se connecter sur https://jonatecht.github.io/shango/ avec le superadmin, créer
    l'organisation puis l'équipement **SH-001** (identifiant du boîtier dans `config.h`).
 
+
+## Nom de domaine (en place depuis le 16 novembre 2026)
+
+- `shango-solar.com` est enregistré chez Route 53 Domains (renouvellement automatique, 16 $/an),
+  zone hébergée `Z01438281FIGXK3MUOWIW`.
+- Certificat ACM `*.shango-solar.com` + `shango-solar.com` (us-east-1, validation DNS), attaché à la
+  distribution CloudFront `EFYNABFR6PSMK` avec l'alias **api.shango-solar.com**.
+- L'API publique est donc **https://api.shango-solar.com** ; l'ancienne adresse
+  `d2kl9a9hqtmf5q.cloudfront.net` reste valable (même distribution).
+- Pour servir aussi le frontend sous ce domaine (ex. `app.shango-solar.com`), ajouter un CNAME vers
+  `jonatecht.github.io` et déclarer le domaine personnalisé dans les réglages GitHub Pages du dépôt.
+
 ## Exploitation
 
 ```bash
