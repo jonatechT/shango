@@ -428,49 +428,52 @@
     </div>
   </div>
 }
-<!-- ===== Alerte IoT en plein écran =====
-     Fenêtre centrale qui fige le reste de l'application tant que l'alerte
-     n'est pas acquittée (la sonnerie s'arrête à l'acquittement). -->
+<!-- ===== Alerte IoT au centre de l'écran =====
+     Carte qui fige le reste de l'application tant que l'alerte n'est pas
+     acquittée (la sonnerie s'arrête à l'acquittement). -->
 @if (pendingAlerts().length > 0 && !isAuthPage()) {
   <div class="iot-alert-overlay" role="presentation">
-    <div class="iot-alert-modal" role="alertdialog" aria-modal="true" aria-labelledby="iot-alert-title">
-      <div class="iot-alert-icon">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-      </div>
-      <h2 id="iot-alert-title" class="iot-alert-title">
-        @if (pendingAlerts().length > 1) {
-          {{ pendingAlerts().length }} alertes en cours
-        } @else {
-          Alerte : {{ typeAlerteLabel(pendingAlerts()[0].type_alerte) }}
-        }
-      </h2>
-
-      <div class="iot-alert-list">
-        @for (alerte of pendingAlerts(); track alerte.id) {
-          <div class="iot-alert-item" [class.iot-alert-item--critique]="alerte.gravite === 'ELEVEE'">
-            <div class="iot-alert-item-head">
-              <span class="iot-alert-type">{{ typeAlerteLabel(alerte.type_alerte) }}</span>
-              <span class="iot-alert-gravite">{{ alerte.gravite === 'ELEVEE' ? 'Gravité élevée' : alerte.gravite === 'MOYENNE' ? 'Gravité moyenne' : 'Gravité faible' }}</span>
+    <div class="iot-alert-card" role="alertdialog" aria-modal="true" aria-labelledby="iot-alert-title">
+      @for (alerte of pendingAlerts(); track alerte.id; let first = $first) {
+        <section class="iot-alert-section" [class.iot-alert-section--next]="!first">
+          <header class="iot-alert-head">
+            <span class="iot-alert-pill" [class.iot-alert-pill--warning]="alerte.gravite !== 'ELEVEE'">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </span>
+            <div class="iot-alert-heading">
+              <h2 [id]="first ? 'iot-alert-title' : null" class="iot-alert-title">{{ typeAlerteLabel(alerte.type_alerte) }}</h2>
+              <p class="iot-alert-meta">
+                {{ alerte.equipement?.reference || 'Équipement' }} · {{ alerte.horodatage | date: 'HH:mm:ss' }}
+              </p>
             </div>
-            <p class="iot-alert-equipement">
-              <i class="fa-solid fa-solar-panel"></i>
-              {{ alerte.equipement?.nom || alerte.equipement?.reference || 'Équipement' }}
-              @if (alerte.equipement?.reference) { <span class="iot-alert-ref">({{ alerte.equipement?.reference }})</span> }
-            </p>
-            <p class="iot-alert-text">{{ alerteMessage(alerte.type_alerte) }}</p>
-            <p class="iot-alert-time">
-              <i class="fa-regular fa-clock"></i> {{ alerte.horodatage | date: 'dd/MM/yyyy à HH:mm:ss' }}
-            </p>
-            <button type="button" class="iot-alert-btn iot-alert-btn--ghost" (click)="openPendingAlert(alerte)">
-              <i class="fa-solid fa-arrow-up-right-from-square"></i> Voir l'équipement
+            @if (first) {
+              <button type="button" class="iot-alert-close" (click)="acknowledgeAlertModal()" aria-label="Fermer l'alerte">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            }
+          </header>
+          <p class="iot-alert-text">
+            <strong>{{ alerte.equipement?.nom || alerte.equipement?.reference || "L'équipement" }}</strong> —
+            {{ alerteMessage(alerte.type_alerte) }}
+          </p>
+          @if (pendingAlerts().length > 1) {
+            <button type="button" class="iot-alert-link" (click)="openPendingAlert(alerte)">
+              Voir l'équipement <i class="fa-solid fa-arrow-right"></i>
             </button>
-          </div>
-        }
-      </div>
+          }
+        </section>
+      }
 
-      <button type="button" class="iot-alert-btn iot-alert-btn--primary" (click)="acknowledgeAlertModal()">
-        <i class="fa-solid fa-check"></i> J'ai compris, arrêter l'alarme
-      </button>
+      <footer class="iot-alert-actions">
+        @if (pendingAlerts().length === 1) {
+          <button type="button" class="iot-alert-btn iot-alert-btn--secondary" (click)="openPendingAlert(pendingAlerts()[0])">
+            Voir l'équipement
+          </button>
+        }
+        <button type="button" class="iot-alert-btn iot-alert-btn--primary" (click)="acknowledgeAlertModal()">
+          OK
+        </button>
+      </footer>
     </div>
   </div>
 }

@@ -223,12 +223,12 @@ export class App {
 
   protected alerteMessage(type: string): string {
     switch (type) {
-      case 'BOITIER_OUVERT': return "Le boîtier de l'équipement a été ouvert. Vérifiez qu'il ne s'agit pas d'une intrusion ou d'une manipulation non autorisée.";
-      case 'SURCHAUFFE': return 'La température du kit est anormalement élevée.';
-      case 'TENSION_FAIBLE': return 'La tension de la batterie est anormalement basse.';
-      case 'CHOC': return "Un choc a été détecté sur l'équipement.";
-      case 'MOUVEMENT': return "Un déplacement de l'équipement a été détecté.";
-      default: return "Une anomalie a été détectée sur l'équipement.";
+      case 'BOITIER_OUVERT': return "le boîtier a été ouvert. Vérifiez qu'il ne s'agit pas d'une intrusion.";
+      case 'SURCHAUFFE': return 'la température du kit est anormalement élevée.';
+      case 'TENSION_FAIBLE': return 'la tension de la batterie est anormalement basse.';
+      case 'CHOC': return 'un choc a été détecté.';
+      case 'MOUVEMENT': return 'un déplacement a été détecté.';
+      default: return 'une anomalie a été détectée.';
     }
   }
 
