@@ -232,14 +232,14 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-purple"><i class="fa-solid fa-location-dot"></i></span>
               <span class="eqd-card-label">Latitude</span>
             </div>
-            @if (hasGpsFix()) {
-              <div class="eqd-card-value eqd-coords">{{ telemetrieLatitudeDisplay }}</div>
-              <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
+            @if (hasDisplayPosition()) {
+              <div class="eqd-card-value eqd-coords">{{ positionLatitudeDisplay }}</div>
+              <div class="eqd-card-meta">{{ positionSourceDisplay }}</div>
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">En attente d'un fix GPS du boîtier</span>
+                <span class="eqd-card-meta">{{ positionAttenteDisplay }}</span>
               </div>
             }
           </article>
@@ -250,11 +250,11 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <span class="eqd-chip eqd-chip-purple"><i class="fa-solid fa-location-dot"></i></span>
               <span class="eqd-card-label">Longitude</span>
             </div>
-            @if (hasGpsFix()) {
-              <div class="eqd-card-value eqd-coords">{{ telemetrieLongitudeDisplay }}</div>
+            @if (hasDisplayPosition()) {
+              <div class="eqd-card-value eqd-coords">{{ positionLongitudeDisplay }}</div>
               <a
                 class="eqd-maps-btn"
-                [href]="telemetrieMapsLink"
+                [href]="positionMapsLink"
                 target="_blank"
                 rel="noopener"
               >
@@ -265,7 +265,7 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
                 <span class="eqd-badge eqd-badge-neutral">Donnée non disponible</span>
-                <span class="eqd-card-meta">En attente d'un fix GPS du boîtier</span>
+                <span class="eqd-card-meta">{{ positionAttenteDisplay }}</span>
               </div>
             }
           </article>
@@ -2301,6 +2301,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       const eq = this.equipmentService.getById(id);
       if (eq) {
         this.equipment = eq;
+        this.syncFixedPosition(eq);
         this.diagnostic = this.equipmentService.getDiagnostic(eq);
         this.checkAlertStatus();
         this.loadLatestTelemetrie(eq);
@@ -2312,6 +2313,7 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
         const refreshed = this.equipmentService.getById(id);
         if (refreshed) {
           this.equipment = refreshed;
+          this.syncFixedPosition(refreshed);
           this.diagnostic = this.equipmentService.getDiagnostic(refreshed);
           this.checkAlertStatus();
           this.loadLatestTelemetrie(refreshed);
@@ -2439,6 +2441,8 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       if (!this.espWasConnected) {
         this.espWasConnected = true;
         this.showEspConnectionToast(true);
+        // Pas de position GPS : relevé et mémorisation d'une position fixe.
+        this.ensureFixedPosition(entry);
         // Le boîtier vient de se connecter : diagnostic batterie automatique
         // sur cette télémétrie, pour que DoD / SOH / RUL arrivent avec elle.
         this.lancerDiagnostic();
@@ -3012,6 +3016,85 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   get telemetrieLongitudeDisplay(): string {
     const v = this.latestTelemetrie()?.longitude;
     return v !== null && v !== undefined ? `${Number(v).toFixed(6)}°` : '—';
+  }
+
+  /* ===== Position affichée : GPS du boîtier, sinon position fixe mémorisée ===== */
+
+  /** Position fixe mémorisée de l'équipement (signal : rafraîchit la vue, app sans zone.js). */
+  readonly fixedPosition = signal<{ lat: number; lng: number } | null>(null);
+  /** true pendant la demande de localisation au navigateur. */
+  readonly locatingPosition = signal(false);
+  private fixedPositionRequested = false;
+
+  private syncFixedPosition(eq: Equipment): void {
+    if (eq.latitudeFixe != null && eq.longitudeFixe != null) {
+      this.fixedPosition.set({ lat: eq.latitudeFixe, lng: eq.longitudeFixe });
+    }
+  }
+
+  /**
+   * Boîtier connecté sans position GPS dans sa télémétrie et aucune position
+   * mémorisée : on relève une fois la position via le service de localisation
+   * du navigateur (Google, d'après les réseaux Wi-Fi environnants), puis on la
+   * mémorise sur le serveur comme position fixe de l'équipement.
+   */
+  private ensureFixedPosition(entry: TelemetrieEntry): void {
+    const gpsRecu = entry.latitude !== null && entry.longitude !== null && (entry.latitude !== 0 || entry.longitude !== 0);
+    if (gpsRecu || this.fixedPosition() || this.fixedPositionRequested || !this.equipment) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    this.fixedPositionRequested = true;
+    this.locatingPosition.set(true);
+    const id = this.equipment.id;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = Math.round(pos.coords.latitude * 1e7) / 1e7;
+        const lng = Math.round(pos.coords.longitude * 1e7) / 1e7;
+        this.fixedPosition.set({ lat, lng });
+        this.locatingPosition.set(false);
+        this.equipmentService.saveFixedPosition(id, lat, lng).subscribe();
+      },
+      () => this.locatingPosition.set(false),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+    );
+  }
+
+  /** Une position est affichée seulement quand le boîtier est connecté. */
+  hasDisplayPosition(): boolean {
+    return this.hasGpsFix() || (this.latestTelemetrie() !== null && this.fixedPosition() !== null);
+  }
+
+  private get displayPosition(): { lat: number; lng: number } | null {
+    const t = this.latestTelemetrie();
+    if (this.hasGpsFix() && t && t.latitude !== null && t.longitude !== null) {
+      return { lat: t.latitude, lng: t.longitude };
+    }
+    return this.latestTelemetrie() ? this.fixedPosition() : null;
+  }
+
+  get positionLatitudeDisplay(): string {
+    const p = this.displayPosition;
+    return p ? `${p.lat.toFixed(6)}°` : '—';
+  }
+
+  get positionLongitudeDisplay(): string {
+    const p = this.displayPosition;
+    return p ? `${p.lng.toFixed(6)}°` : '—';
+  }
+
+  get positionMapsLink(): string {
+    const p = this.displayPosition;
+    return p ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
+  }
+
+  get positionSourceDisplay(): string {
+    return this.hasGpsFix() ? 'Dernière télémétrie IoT reçue' : 'Position mémorisée (GPS sans signal)';
+  }
+
+  get positionAttenteDisplay(): string {
+    if (!this.latestTelemetrie()) return 'Aucune télémétrie reçue';
+    if (this.locatingPosition()) return 'Localisation en cours…';
+    return "Autorisez la localisation du navigateur pour mémoriser la position";
   }
 
   get telemetrieMapsLink(): string {

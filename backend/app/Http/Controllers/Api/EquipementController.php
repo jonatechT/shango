@@ -429,4 +429,52 @@ class EquipementController extends Controller
             'message' => 'Équipement supprimé avec succès.'
         ]);
     }
+
+    /**
+     * PUT /api/equipements/{equipement}/position-fixe
+     *
+     * Mémorise une position fixe pour l'équipement (ex. relevée par le
+     * service de localisation du navigateur près du kit). Elle est affichée
+     * tant que la télémétrie ne contient pas de position GPS.
+     */
+    public function definirPositionFixe(Request $request, string $equipement)
+    {
+        $equipement = Equipement::find($equipement);
+
+        if (!$equipement) {
+            return response()->json(['message' => 'Ressource introuvable.'], 404);
+        }
+
+        $user = $request->user();
+
+        if (
+            $user->role === 'technicien' &&
+            (int) $equipement->technicien_id !== (int) $user->id
+        ) {
+            return response()->json([
+                'message' => 'Accès interdit. Cet équipement ne vous est pas affecté.'
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $equipement->forceFill([
+            'latitude_fixe' => $validated['latitude'],
+            'longitude_fixe' => $validated['longitude'],
+            'position_fixe_le' => now(),
+        ])->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Position fixe mémorisée.',
+            'data' => [
+                'latitude_fixe' => (float) $equipement->latitude_fixe,
+                'longitude_fixe' => (float) $equipement->longitude_fixe,
+                'position_fixe_le' => $equipement->position_fixe_le,
+            ],
+        ]);
+    }
 }

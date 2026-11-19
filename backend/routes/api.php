@@ -296,6 +296,12 @@ Route::middleware('auth:sanctum')->group(function () {
             '/equipements/{equipement}/telemetries',
             [TelemetrieController::class, 'equipementTelemetries']
         )->name('equipements.telemetries');
+
+        // Position fixe mémorisée (affichée tant que le GPS n'a pas de signal).
+        Route::put(
+            '/equipements/{equipement}/position-fixe',
+            [EquipementController::class, 'definirPositionFixe']
+        )->name('equipements.position-fixe');
     });
 
 

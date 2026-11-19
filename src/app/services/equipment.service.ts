@@ -59,6 +59,12 @@ export interface Equipment {
    * équipement jamais synchronisé avec le backend.
    */
   backendId?: number;
+  /**
+   * Position fixe mémorisée (latitude/longitude) — affichée tant que la
+   * télémétrie ne contient pas de position GPS (pas de signal satellite).
+   */
+  latitudeFixe?: number | null;
+  longitudeFixe?: number | null;
 }
 
 export interface EquipmentDiagnostic {
@@ -363,8 +369,29 @@ export class EquipmentService {
       boitierId: raw.device_id,
       responsable: existing?.responsable,
       photoDataUrl: this.buildPhotoUrl(raw.photo) ?? existing?.photoDataUrl,
-      perimetreMetres: raw.perimetre_metres != null ? Number(raw.perimetre_metres) : existing?.perimetreMetres
+      perimetreMetres: raw.perimetre_metres != null ? Number(raw.perimetre_metres) : existing?.perimetreMetres,
+      latitudeFixe: raw.latitude_fixe != null ? Number(raw.latitude_fixe) : null,
+      longitudeFixe: raw.longitude_fixe != null ? Number(raw.longitude_fixe) : null
     });
+  }
+
+  /**
+   * Mémorise la position fixe d'un équipement —
+   * PUT /api/equipements/{backendId}/position-fixe.
+   */
+  saveFixedPosition(id: string, latitude: number, longitude: number): Observable<boolean> {
+    const equipment = this.getById(id);
+    if (!equipment?.backendId) return of(false);
+    return this.http
+      .put(`${environment.apiUrl}/equipements/${equipment.backendId}/position-fixe`, { latitude, longitude })
+      .pipe(
+        map(() => {
+          equipment.latitudeFixe = latitude;
+          equipment.longitudeFixe = longitude;
+          return true;
+        }),
+        catchError(() => of(false))
+      );
   }
 
   getAll(): Equipment[] {
