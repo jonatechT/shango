@@ -234,7 +234,9 @@ import { BatteryHistoryChartsComponent } from '../../components/battery-history-
             </div>
             @if (hasDisplayPosition()) {
               <div class="eqd-card-value eqd-coords">{{ positionLatitudeDisplay }}</div>
-              <div class="eqd-card-meta">{{ positionSourceDisplay }}</div>
+              @if (hasGpsFix()) {
+                <div class="eqd-card-meta">Dernière télémétrie IoT reçue</div>
+              }
             } @else {
               <div class="eqd-card-value eqd-value-empty">—</div>
               <div class="eqd-card-foot">
@@ -2441,8 +2443,6 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
       if (!this.espWasConnected) {
         this.espWasConnected = true;
         this.showEspConnectionToast(true);
-        // Pas de position GPS : relevé et mémorisation d'une position fixe.
-        this.ensureFixedPosition(entry);
         // Le boîtier vient de se connecter : diagnostic batterie automatique
         // sur cette télémétrie, pour que DoD / SOH / RUL arrivent avec elle.
         this.lancerDiagnostic();
@@ -3022,41 +3022,14 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
 
   /** Position fixe mémorisée de l'équipement (signal : rafraîchit la vue, app sans zone.js). */
   readonly fixedPosition = signal<{ lat: number; lng: number } | null>(null);
-  /** true pendant la demande de localisation au navigateur. */
-  readonly locatingPosition = signal(false);
-  private fixedPositionRequested = false;
-
+  /**
+   * Position fixe définie pour l'équipement (en base : latitude_fixe /
+   * longitude_fixe), affichée tant que la télémétrie n'apporte pas de GPS.
+   */
   private syncFixedPosition(eq: Equipment): void {
     if (eq.latitudeFixe != null && eq.longitudeFixe != null) {
       this.fixedPosition.set({ lat: eq.latitudeFixe, lng: eq.longitudeFixe });
     }
-  }
-
-  /**
-   * Boîtier connecté sans position GPS dans sa télémétrie et aucune position
-   * mémorisée : on relève une fois la position via le service de localisation
-   * du navigateur (Google, d'après les réseaux Wi-Fi environnants), puis on la
-   * mémorise sur le serveur comme position fixe de l'équipement.
-   */
-  private ensureFixedPosition(entry: TelemetrieEntry): void {
-    const gpsRecu = entry.latitude !== null && entry.longitude !== null && (entry.latitude !== 0 || entry.longitude !== 0);
-    if (gpsRecu || this.fixedPosition() || this.fixedPositionRequested || !this.equipment) return;
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-
-    this.fixedPositionRequested = true;
-    this.locatingPosition.set(true);
-    const id = this.equipment.id;
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const lat = Math.round(pos.coords.latitude * 1e7) / 1e7;
-        const lng = Math.round(pos.coords.longitude * 1e7) / 1e7;
-        this.fixedPosition.set({ lat, lng });
-        this.locatingPosition.set(false);
-        this.equipmentService.saveFixedPosition(id, lat, lng).subscribe();
-      },
-      () => this.locatingPosition.set(false),
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
-    );
   }
 
   /** Une position est affichée seulement quand le boîtier est connecté. */
@@ -3087,14 +3060,9 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
     return p ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
   }
 
-  get positionSourceDisplay(): string {
-    return this.hasGpsFix() ? 'Dernière télémétrie IoT reçue' : 'Position mémorisée (GPS sans signal)';
-  }
-
   get positionAttenteDisplay(): string {
     if (!this.latestTelemetrie()) return 'Aucune télémétrie reçue';
-    if (this.locatingPosition()) return 'Localisation en cours…';
-    return "Autorisez la localisation du navigateur pour mémoriser la position";
+    return "En attente d'un fix GPS du boîtier";
   }
 
   get telemetrieMapsLink(): string {
