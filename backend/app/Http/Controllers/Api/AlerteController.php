@@ -188,10 +188,11 @@ class AlerteController extends Controller
         // ÉQUIPEMENT CONNECTÉ ?
         // =================================================
         // Un boîtier envoie une télémétrie toutes les 10 s : s'il en a envoyé
-        // une dans les 30 dernières secondes, il est considéré connecté.
+        // une dans les 60 dernières secondes, il est considéré connecté (marge pour
+        // un réseau lent qui livre les télémétries par rafales).
         // Le frontend ne signale que les alertes des équipements connectés.
 
-        $connectes = Telemetrie::where('created_at', '>=', now()->subSeconds(30))
+        $connectes = Telemetrie::where('created_at', '>=', now()->subSeconds(60))
             ->distinct()
             ->pluck('equipement_id')
             ->map(fn ($id) => (int) $id)

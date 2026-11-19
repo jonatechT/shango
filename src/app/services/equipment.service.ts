@@ -149,6 +149,8 @@ export interface TelemetrieEntry {
   latitude: number | null;
   longitude: number | null;
   horodatage: string;
+  /** Heure de réception par le serveur (created_at) — sert à juger si le boîtier est « en direct ». */
+  recu_le: string | null;
 }
 
 /**
@@ -917,7 +919,8 @@ export class EquipmentService {
             signal_gsm: latest.signal_gsm != null ? Number(latest.signal_gsm) : null,
             latitude: latest.latitude != null ? Number(latest.latitude) : null,
             longitude: latest.longitude != null ? Number(latest.longitude) : null,
-            horodatage: latest.horodatage
+            horodatage: latest.horodatage,
+            recu_le: latest.created_at ?? null
           };
         }),
         catchError(() => of(null))

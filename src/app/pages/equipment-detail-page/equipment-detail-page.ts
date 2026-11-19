@@ -2342,9 +2342,17 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
    * avant l'arrivée de la télémétrie suivante — pas un envoi manqué, juste
    * un seuil plus court que l'intervalle réel du boîtier.
    */
-  private static readonly TELEMETRIE_STALE_MS = 15000;
-  /** Âge maximal d'une télémétrie (horodatage du boîtier) pour être considérée « en direct ». */
-  private static readonly TELEMETRIE_LIVE_MAX_AGE_MS = 30000;
+  // Passé de 15 s à 45 s : sur le réseau Wi-Fi du boîtier (partage de
+  // connexion), les télémétries arrivent par rafales avec des trous de 30 à
+  // 60 s ; 15 s faisait clignoter les cartes en « non disponible ».
+  private static readonly TELEMETRIE_STALE_MS = 45000;
+  /**
+   * Âge maximal d'une télémétrie, mesuré à sa RÉCEPTION par le serveur
+   * (created_at), pour être considérée « en direct ». On n'utilise plus
+   * l'horodatage du boîtier : sur un réseau lent il arrive avec 30 à 100 s
+   * de retard alors que le boîtier est bien connecté.
+   */
+  private static readonly TELEMETRIE_LIVE_MAX_AGE_MS = 60000;
   /** Horodatage navigateur (Date.now()) de la dernière télémétrie affichée. */
   private lastTelemetrieReceivedAt: number | null = null;
   /**
@@ -2416,12 +2424,13 @@ export class EquipmentDetailPageComponent implements OnInit, OnDestroy {
   /** N'affiche une télémétrie que si elle est plus récente que la référence connue. */
   private applyTelemetrieIfNewer(entry: TelemetrieEntry | null): void {
     if (!entry) return;
-    const recue = new Date(entry.horodatage).getTime();
     const isNewer =
       !this.telemetrieBaselineHorodatage ||
-      recue > new Date(this.telemetrieBaselineHorodatage).getTime();
+      new Date(entry.horodatage).getTime() > new Date(this.telemetrieBaselineHorodatage).getTime();
     // Une télémétrie ancienne (boîtier pas encore connecté) ne doit jamais
     // être affichée comme « en direct » — ex. État du kit « En marche ».
+    // Âge jugé sur l'heure de réception serveur (repli : horodatage boîtier).
+    const recue = new Date(entry.recu_le ?? entry.horodatage).getTime();
     const isRecente = !isNaN(recue) && Date.now() - recue < EquipmentDetailPageComponent.TELEMETRIE_LIVE_MAX_AGE_MS;
     if (isNewer && isRecente) {
       this.latestTelemetrie.set(entry);
